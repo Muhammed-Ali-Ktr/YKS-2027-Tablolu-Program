@@ -15,11 +15,6 @@
     .view-container {
         padding: 1.25rem;
     }
-
-    .schedule-grid {
-        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-        gap: 1rem;
-    }
 }
 
 /* Mobil Görünüm (<= 768px) */
@@ -100,9 +95,18 @@
     }
 
     /* Mobilde Günler Tam Genişlikte Dikey Kart Listesi */
+    .calendar-weekdays-bar {
+        display: none;
+    }
+
+    .day-card.day-card-placeholder {
+        display: none;
+    }
+
     .schedule-grid {
         grid-template-columns: 1fr;
         gap: 0.85rem;
+        min-width: 0;
     }
 
     .day-card {

@@ -9,7 +9,11 @@ import {
     getRemainingDays,
     getSubjectPlannedCount,
     getSubjectCompletedCount,
-    validateAddSubjectToDay
+    validateAddSubjectToDay,
+    getIsoWeekday,
+    parseISODate,
+    formatToISODate,
+    formatTurkishDate
 } from './scheduler.js';
 
 export const UI = {
@@ -154,9 +158,43 @@ export const UI = {
             }
         }
 
+        const wrapper = container.closest('.schedule-calendar-wrapper');
+        const isFiltered = AppState.currentMode === 'use' && AppState.useFilter !== 'all';
+        if (wrapper) {
+            wrapper.classList.toggle('is-filtered-view', isFiltered);
+        }
+
         const subjectMap = new Map(AppState.subjects.map(s => [s.id, s]));
 
         let html = '';
+
+        // Pazartesi ile başlaması için başlangıç haftasının önceki günlerini dolgu olarak ekle
+        if (!isFiltered && displayedDays.length > 0) {
+            const firstDateStr = displayedDays[0].dateStr;
+            const firstWeekday = getIsoWeekday(firstDateStr); // 1: Pazartesi ... 7: Pazar
+            if (firstWeekday > 1) {
+                const firstDateObj = parseISODate(firstDateStr);
+                for (let offset = firstWeekday - 1; offset >= 1; offset--) {
+                    const padDate = new Date(firstDateObj);
+                    padDate.setDate(padDate.getDate() - offset);
+                    const padDateStr = formatToISODate(padDate);
+                    const padFormatted = formatTurkishDate(padDateStr);
+                    html += `
+                        <div class="day-card day-card-placeholder" data-date="${padDateStr}">
+                            <div class="day-header">
+                                <div class="day-info">
+                                    <div class="day-number-title">-</div>
+                                    <div class="day-date-sub">${padFormatted}</div>
+                                </div>
+                            </div>
+                            <div class="day-content">
+                                <div class="day-placeholder-box">Program Öncesi</div>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+        }
 
         displayedDays.forEach(day => {
             const dayItems = AppState.scheduleItems
@@ -273,6 +311,34 @@ export const UI = {
                 </div>
             `;
         });
+
+        // Pazar ile bitmesi için bitiş haftasının kalan günlerini dolgu olarak ekle
+        if (!isFiltered && displayedDays.length > 0) {
+            const lastDateStr = displayedDays[displayedDays.length - 1].dateStr;
+            const lastWeekday = getIsoWeekday(lastDateStr); // 1: Pazartesi ... 7: Pazar
+            if (lastWeekday < 7) {
+                const lastDateObj = parseISODate(lastDateStr);
+                for (let offset = 1; offset <= (7 - lastWeekday); offset++) {
+                    const padDate = new Date(lastDateObj);
+                    padDate.setDate(padDate.getDate() + offset);
+                    const padDateStr = formatToISODate(padDate);
+                    const padFormatted = formatTurkishDate(padDateStr);
+                    html += `
+                        <div class="day-card day-card-placeholder" data-date="${padDateStr}">
+                            <div class="day-header">
+                                <div class="day-info">
+                                    <div class="day-number-title">-</div>
+                                    <div class="day-date-sub">${padFormatted}</div>
+                                </div>
+                            </div>
+                            <div class="day-content">
+                                <div class="day-placeholder-box">Program Sonu</div>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+        }
 
         container.innerHTML = html;
     },

@@ -44,6 +44,16 @@ export function formatTurkishDate(dateStr, includeWeekday = true) {
 }
 
 /**
+ * ISO Hafta Günü Numarası (1: Pazartesi, 2: Salı, ..., 7: Pazar)
+ */
+export function getIsoWeekday(dateStr) {
+    if (!dateStr) return 1;
+    const date = parseISODate(dateStr);
+    const day = date.getDay();
+    return day === 0 ? 7 : day;
+}
+
+/**
  * Kısa Türkçe tarih biçimlendirme (Örn: "20 Eyl")
  */
 export function formatShortDate(dateStr) {
