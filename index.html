@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YKS 2027 Kişisel Çalışma Programı</title>
+    <meta name="description" content="YKS 2027 için kişisel, manuel ve dinamik ders çalışma programı oluşturma ve takip platformu.">
+    
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/responsive.css">
+</head>
+<body>
+
+    <div class="app-layout">
+        <!-- Mobil Menü Karartması (Backdrop) -->
+        <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+        <!-- ========================================== -->
+        <!-- SOL KENAR ÇUBUĞU (SIDEBAR) -->
+        <!-- ========================================== -->
+        <aside class="sidebar" id="appSidebar">
+            <div class="sidebar-header">
+                <a href="#" class="brand-badge">
+                    <div class="brand-icon">27</div>
+                    <div>
+                        <div class="brand-title">YKS 2027</div>
+                        <div class="brand-subtitle">Çalışma Programı</div>
+                    </div>
+                </a>
+            </div>
+
+            <nav class="sidebar-nav">
+                <button type="button" class="nav-item active" data-tab="schedule" id="navSchedule">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
+                    Program Takvimi
+                </button>
+
+                <button type="button" class="nav-item" data-tab="subjects" id="navSubjects">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                    </svg>
+                    Dersler Kataloğu
+                </button>
+
+                <button type="button" class="nav-item" data-tab="stats" id="navStats">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                    </svg>
+                    İstatistikler
+                </button>
+
+                <button type="button" class="nav-item" data-tab="settings" id="navSettings">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                    Ayarlar
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="cloud-status-badge" id="cloudStatusBadge">
+                    <div class="status-dot" id="cloudStatusDot"></div>
+                    <span id="cloudStatusText" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Yerel Mod</span>
+                </div>
+                <button type="button" class="btn btn-secondary btn-sm" id="btnOpenAuthModal" style="width: 100%;">
+                    <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                    </svg>
+                    Hesap / Bulut
+                </button>
+            </div>
+        </aside>
+
+        <!-- ========================================== -->
+        <!-- ANA İÇERİK (MAIN CONTENT) -->
+        <!-- ========================================== -->
+        <main class="main-content">
+            <!-- Üst Başlık Barı (Header) -->
+            <header class="top-header">
+                <div class="header-left">
+                    <button type="button" class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Menüyü Aç">
+                        <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                        </svg>
+                    </button>
+                    <div class="page-headline">
+                        <h1 class="page-title">YKS 2027 Çalışma Programı</h1>
+                        <div class="countdown-pill" id="examCountdownPill">
+                            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <span id="examCountdownText">Sınava hesaplanıyor...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 11. Madde: PROGRAMI OLUŞTUR ve PROGRAMI KULLAN Modları -->
+                <div class="header-center">
+                    <div class="mode-toggle-group">
+                        <button type="button" class="mode-btn active" id="modeBtnCreate">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                            </svg>
+                            Programı Oluştur
+                        </button>
+                        <button type="button" class="mode-btn" id="modeBtnUse">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            Programı Kullan
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- ========================================== -->
+            <!-- 1. GÖRÜNÜM: PROGRAM TAKVİMİ -->
+            <!-- ========================================== -->
+            <section class="view-container view-section active" id="view-schedule">
+                <div class="view-toolbar">
+                    <div class="toolbar-info">
+                        <h2>Günlük Çalışma Planı</h2>
+                        <p id="scheduleModeSubtitle">Her güne dilediğiniz dersi ekleyin; sistem çalışma numaralarını otomatik hesaplar.</p>
+                    </div>
+
+                    <!-- Programı Kullan Modu İçin Filtreleme Butonları -->
+                    <div class="toolbar-actions" id="scheduleUseFilterBar">
+                        <button type="button" class="btn btn-primary btn-sm js-use-filter" data-filter="all">Tüm Günler</button>
+                        <button type="button" class="btn btn-secondary btn-sm js-use-filter" data-filter="today">Bugün</button>
+                        <button type="button" class="btn btn-secondary btn-sm js-use-filter" data-filter="uncompleted">Kalan Günler</button>
+                    </div>
+                </div>
+
+                <!-- Gün Kartları Grid Konteyneri -->
+                <div class="schedule-grid" id="scheduleGridContainer">
+                    <!-- Dinamik JavaScript ile doldurulacak -->
+                </div>
+            </section>
+
+            <!-- ========================================== -->
+            <!-- 2. GÖRÜNÜM: DERSLER KATALOĞU -->
+            <!-- ========================================== -->
+            <section class="view-container view-section" id="view-subjects">
+                <div class="view-toolbar">
+                    <div class="toolbar-info">
+                        <h2>Tanımlı Dersler</h2>
+                        <p>Takip edeceğiniz derslerin toplam çalışma günlerini ve oynatma listelerini yönetin.</p>
+                    </div>
+                    <div class="toolbar-actions">
+                        <button type="button" class="btn btn-primary" id="btnOpenNewSubject">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                            </svg>
+                            Yeni Ders Ekle
+                        </button>
+                    </div>
+                </div>
+
+                <div class="subjects-grid" id="subjectsGridContainer">
+                    <!-- Dinamik JavaScript ile doldurulacak -->
+                </div>
+            </section>
+
+            <!-- ========================================== -->
+            <!-- 3. GÖRÜNÜM: İSTATİSTİKLER -->
+            <!-- ========================================== -->
+            <section class="view-container view-section" id="view-stats">
+                <div class="view-toolbar">
+                    <div class="toolbar-info">
+                        <h2>İlerleme İstatistikleri</h2>
+                        <p>Genel çalışma hedeflerinizi ve ders bazlı tamamlanma oranlarınızı görün.</p>
+                    </div>
+                </div>
+
+                <!-- Özet Metrik Kartları -->
+                <div class="stats-summary-grid">
+                    <div class="stat-card">
+                        <span class="stat-card-label">Toplam Planlanan</span>
+                        <div class="stat-card-value" id="statTotalPlanned">0</div>
+                        <span class="stat-card-sub">günlük çalışma kaydı</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-card-label">Tamamlanan</span>
+                        <div class="stat-card-value" id="statTotalCompleted" style="color: var(--accent-green);">0</div>
+                        <span class="stat-card-sub">çalışma bitti</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-card-label">Kalan Çalışma</span>
+                        <div class="stat-card-value" id="statTotalRemaining" style="color: var(--accent-blue);">0</div>
+                        <span class="stat-card-sub">yapılacak çalışma</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-card-label">Başarı Oranı</span>
+                        <div class="stat-card-value" id="statCompletionRate">%0</div>
+                        <span class="stat-card-sub">tamamlanma yüzdesi</span>
+                    </div>
+                </div>
+
+                <!-- Ders Bazlı Detay Listesi -->
+                <h3 style="margin-bottom: 1rem; font-size: 1.15rem; font-weight: 700;">Ders Bazlı Detaylı İlerleme</h3>
+                <div id="statsSubjectDetailsList">
+                    <!-- Dinamik JS ile doldurulacak -->
+                </div>
+            </section>
+
+            <!-- ========================================== -->
+            <!-- 4. GÖRÜNÜM: AYARLAR -->
+            <!-- ========================================== -->
+            <section class="view-container view-section" id="view-settings">
+                <div class="view-toolbar">
+                    <div class="toolbar-info">
+                        <h2>Uygulama Ayarları</h2>
+                        <p>Tarih aralıkları, Supabase veritabanı bağlantısı ve program sıfırlama seçenekleri.</p>
+                    </div>
+                </div>
+
+                <!-- Tarih Ayarları Kartı -->
+                <div class="settings-section">
+                    <div class="settings-header">
+                        <h3>Sınav & Başlangıç Tarihleri</h3>
+                        <p>Takvimin hangi tarihten başlayıp ne zaman biteceğini ayarlayın.</p>
+                    </div>
+                    <form id="settingsDatesForm" class="settings-form">
+                        <div class="form-group">
+                            <label class="form-label" for="settingStartDate">Program Başlangıç Tarihi</label>
+                            <input type="date" id="settingStartDate" class="form-input" required>
+                            <span class="form-hint">Varsayılan olarak bugünün tarihi seçilidir.</span>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="settingExamDate">YKS 2027 Sınav Tarihi</label>
+                            <input type="date" id="settingExamDate" class="form-input" value="2027-06-19" required>
+                            <span class="form-hint">YKS 2027 tahmini sınav tarihi: 19 Haziran 2027.</span>
+                        </div>
+
+                        <div class="form-group" style="flex-direction: row; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" id="settingIncludeExamDay" style="width: 18px; height: 18px;">
+                            <label class="form-label" for="settingIncludeExamDay" style="margin-bottom: 0; cursor: pointer;">
+                                Sınav gününü çalışma günü olarak dahil et
+                            </label>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary" style="width: fit-content;">Tarihleri Kaydet</button>
+                    </form>
+                </div>
+
+                <!-- Supabase Veritabanı Yapılandırması Kartı -->
+                <div class="settings-section">
+                    <div class="settings-header">
+                        <h3>Supabase Veritabanı Bağlantısı</h3>
+                        <p>Verilerinizi Supabase bulut veritabanında güvenle saklamak için URL ve Anon Key bilgilerinizi girin.</p>
+                    </div>
+                    <form id="settingsSupabaseForm" class="settings-form">
+                        <div class="form-group">
+                            <label class="form-label" for="settingSupabaseUrl">Supabase Project URL</label>
+                            <input type="url" id="settingSupabaseUrl" class="form-input" placeholder="https://xyzcompany.supabase.co">
+                            <span class="form-hint">Supabase Dashboard > Settings > API altından Project URL</span>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="settingSupabaseKey">Supabase Anon Key (public)</label>
+                            <input type="password" id="settingSupabaseKey" class="form-input" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...">
+                            <span class="form-hint">Supabase Dashboard > Settings > API altındaki 'anon public' anahtarı</span>
+                        </div>
+
+                        <div style="display: flex; gap: 0.75rem;">
+                            <button type="submit" class="btn btn-primary">Bağlantıyı Kaydet & Test Et</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Programı Sıfırla (Danger Zone) -->
+                <div class="settings-section danger-box">
+                    <div class="settings-header" style="border-color: #fecaca;">
+                        <h3 style="color: var(--accent-danger);">Programı Sıfırla</h3>
+                        <p style="color: #7f1d1d;">Hazırladığınız tüm ders yerleşimlerini ve çalışma kayıtlarını sıfırlar.</p>
+                    </div>
+                    <p style="font-size: 0.88rem; color: #7f1d1d; margin-bottom: 1rem;">
+                        Bu işlem geri alınamaz. Programa yerleştirdiğiniz tüm dersler takvimden silinir.
+                    </p>
+                    <button type="button" class="btn btn-danger" id="btnTriggerReset">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                        </svg>
+                        Programı Sıfırla
+                    </button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- MODAL 1: GÜNE DERS EKLE MODALI -->
+    <!-- ========================================== -->
+    <div class="modal-overlay" id="addSubjectModal">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <div>
+                    <h3 class="modal-title">Güne Ders Ekle</h3>
+                    <div id="pickerTargetDayDate" style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.15rem;"></div>
+                </div>
+                <button type="button" class="btn-icon js-close-modal" aria-label="Kapat">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">
+                    Eklemek istediğiniz dersi seçin. Çalışma numarası otomatik hesaplanacaktır:
+                </p>
+                <div class="subject-picker-list" id="subjectPickerList">
+                    <!-- Dinamik doldurulacak -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary js-close-modal">Kapat</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- MODAL 2: YENİ DERS TANIMLA / DÜZENLE MODALI -->
+    <!-- ========================================== -->
+    <div class="modal-overlay" id="subjectFormModal">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3 class="modal-title" id="subjectModalTitle">Yeni Ders Tanımla</h3>
+                <button type="button" class="btn-icon js-close-modal" aria-label="Kapat">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <form id="subjectForm">
+                <div class="modal-body">
+                    <div class="form-group" style="margin-bottom: 1rem;">
+                        <label class="form-label" for="subjectName">Ders Adı *</label>
+                        <input type="text" id="subjectName" class="form-input" placeholder="Örn: TYT Matematik" required>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 1rem;">
+                        <label class="form-label" for="subjectExamType">Sınav Türü *</label>
+                        <select id="subjectExamType" class="form-select" required>
+                            <option value="TYT">TYT</option>
+                            <option value="AYT">AYT</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 1rem;">
+                        <label class="form-label" for="subjectTeacher">Ders Anlatıcısı / Hoca *</label>
+                        <input type="text" id="subjectTeacher" class="form-input" placeholder="Örn: Mert Hoca" required>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 1rem;">
+                        <label class="form-label" for="subjectTotalDays">Toplam Çalışma Günü *</label>
+                        <input type="number" id="subjectTotalDays" class="form-input" min="1" max="365" value="50" required>
+                        <span class="form-hint">Bu ders program boyunca en fazla kaç farklı güne yerleştirilecek?</span>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="subjectYoutube">YouTube Oynatma Listesi URL'si</label>
+                        <input type="url" id="subjectYoutube" class="form-input" placeholder="https://youtube.com/playlist?list=...">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary js-close-modal">İptal</button>
+                    <button type="submit" class="btn btn-primary">Kaydet</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- MODAL 3: PROGRAMI SIFIRLA ONAY MODALI -->
+    <!-- ========================================== -->
+    <div class="modal-overlay" id="resetConfirmModal">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3 class="modal-title" style="color: var(--accent-danger);">Programı Sıfırla</h3>
+                <button type="button" class="btn-icon js-close-modal" aria-label="Kapat">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size: 0.95rem; color: var(--text-primary); margin-bottom: 0.75rem;">
+                    <strong>Programı tamamen sıfırlamak istediğinize emin misiniz?</strong>
+                </p>
+                <p style="font-size: 0.85rem; color: var(--text-secondary);">
+                    Bu işlem takvimdeki tüm çalışma planını ve ders eşleştirmelerini silebilir.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary js-close-modal">İptal</button>
+                <button type="button" class="btn btn-danger" id="btnConfirmReset">Programı Sıfırla</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- MODAL 4: SUPABASE GİRİŞ / KAYIT MODALI -->
+    <!-- ========================================== -->
+    <div class="modal-overlay" id="authModal">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3 class="modal-title">Supabase Hesabı</h3>
+                <button type="button" class="btn-icon js-close-modal" aria-label="Kapat">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <form id="authForm">
+                <div class="modal-body">
+                    <div style="display: flex; gap: 1rem; margin-bottom: 1.25rem;">
+                        <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer;">
+                            <input type="radio" name="authMode" value="login" checked> Giriş Yap
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer;">
+                            <input type="radio" name="authMode" value="register"> Yeni Kayıt
+                        </label>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 1rem;">
+                        <label class="form-label" for="authEmail">E-posta</label>
+                        <input type="email" id="authEmail" class="form-input" placeholder="ornek@email.com" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="authPassword">Şifre</label>
+                        <input type="password" id="authPassword" class="form-input" placeholder="En az 6 karakter" minlength="6" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary js-close-modal">İptal</button>
+                    <button type="submit" class="btn btn-primary" id="btnAuthSubmit">Devam Et</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Bildirim Konteyneri -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Supabase JS CDN (V2) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- ES Modülü Olarak Ana JavaScript -->
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>
