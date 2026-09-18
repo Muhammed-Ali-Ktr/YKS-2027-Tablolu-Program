@@ -2,6 +2,8 @@
  * YKS 2027 Kişisel Çalışma Programı - Durum Yönetimi (State Management)
  */
 
+import { Config } from './config.js';
+
 export const INITIAL_SEED_SUBJECTS = [
     {
         id: 'seed-tyt-mat',
@@ -85,23 +87,27 @@ function getTodayISODate() {
     return `${year}-${month}-${day}`;
 }
 
-const LOCAL_STORAGE_KEY = 'yks2027_app_state_v1';
+const LOCAL_STORAGE_KEY = 'yks2027_app_state_v2';
 
 export const AppState = {
+    syncCode: Config.getSyncCode(),
     program: {
         id: 'default-program',
+        sync_code: Config.getSyncCode(),
         exam_name: 'YKS 2027',
         exam_date: '2027-06-19', // YKS 2027 tahmini sınav tarihi
         start_date: getTodayISODate(),
         include_exam_day: false
     },
     subjects: [...INITIAL_SEED_SUBJECTS],
-    scheduleItems: [], // { id, program_id, subject_id, schedule_date, day_number, sort_order, completed, completed_at }
+    scheduleItems: [], // { id, program_id, sync_code, subject_id, schedule_date, day_number, sort_order, completed, completed_at }
     currentMode: 'create', // 'create' = Programı Oluştur, 'use' = Programı Kullan
     activeTab: 'schedule', // 'schedule' | 'subjects' | 'stats' | 'settings'
     useFilter: 'all', // 'all' | 'today' | 'upcoming' | 'uncompleted'
     currentUser: null,
     isSupabaseConnected: false,
+    isSyncing: false,
+    lastSyncTime: null,
     listeners: new Set(),
 
     // State değişikliklerini dinleyen bileşenlere haber ver
@@ -121,10 +127,20 @@ export const AppState = {
         });
     },
 
-    // Yerel depolamaya kaydet (Offline veya bağımsız çalışma için yedekleme)
+    // Yeni senkronizasyon kodu ata
+    setSyncCode(newCode) {
+        const cleaned = Config.saveSyncCode(newCode);
+        this.syncCode = cleaned;
+        this.program.sync_code = cleaned;
+        this.saveToLocal();
+        this.notify('sync_code_changed');
+    },
+
+    // Yerel depolamaya kaydet (Offline veya anlık yedekleme için)
     saveToLocal() {
         try {
             const dataToSave = {
+                syncCode: this.syncCode,
                 program: this.program,
                 subjects: this.subjects,
                 scheduleItems: this.scheduleItems,
@@ -142,7 +158,12 @@ export const AppState = {
             const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
             if (raw) {
                 const parsed = JSON.parse(raw);
-                if (parsed.program) this.program = { ...this.program, ...parsed.program };
+                if (parsed.syncCode) {
+                    this.syncCode = parsed.syncCode;
+                }
+                if (parsed.program) {
+                    this.program = { ...this.program, ...parsed.program };
+                }
                 if (Array.isArray(parsed.subjects) && parsed.subjects.length > 0) {
                     this.subjects = parsed.subjects;
                 }

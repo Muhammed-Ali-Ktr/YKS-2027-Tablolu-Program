@@ -10,35 +10,34 @@ import { validateAddSubjectToDay } from './scheduler.js';
 
 // DOM Elements
 let currentEditingSubjectId = null;
+let unsubscribeRealtime = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
     // 1. Yerel veriyi yükle
     AppState.loadFromLocal();
 
-    // 2. Supabase başlatma
+    // 2. Supabase istemcisini başlat
     const isClientReady = SupabaseService.initClient();
     AppState.isSupabaseConnected = isClientReady;
 
     if (isClientReady) {
+        // Varsa giriş yapmış kullanıcı kontrolü
         try {
             const user = await SupabaseService.getCurrentUser();
             AppState.currentUser = user;
-
-            if (user) {
-                // Kullanıcının buluttaki verilerini çek
-                await syncFromSupabase(user.id);
-            }
         } catch (err) {
-            console.warn('Supabase initial auth check error:', err);
+            console.warn('Auth check error:', err);
         }
 
-        // Auth dinleyici kur
+        // Supabase Realtime aboneliğini başlat
+        setupRealtimeSubscription(AppState.syncCode);
+
+        // Bulut verilerini doğrudan yükle ve senkronize et
+        await syncWithSupabase(AppState.syncCode);
+
+        // Auth dinleyici (Opsiyonel kullanıcı giriş/çıkışları için)
         SupabaseService.onAuthStateChange(async (event, session) => {
-            const user = session?.user || null;
-            AppState.currentUser = user;
-            if (user) {
-                await syncFromSupabase(user.id);
-            }
+            AppState.currentUser = session?.user || null;
             UI.updateHeaderInfo();
         });
     }
@@ -66,35 +65,113 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 /**
+ * Realtime senkronizasyon kanalını kur
+ */
+function setupRealtimeSubscription(syncCode) {
+    if (unsubscribeRealtime) {
+        unsubscribeRealtime();
+        unsubscribeRealtime = null;
+    }
+    unsubscribeRealtime = SupabaseService.subscribeToRealtime(syncCode, handleRemoteChange);
+}
+
+/**
  * Supabase bulut verileri ile senkronizasyon
  */
-async function syncFromSupabase(userId) {
+async function syncWithSupabase(syncCode) {
+    if (!SupabaseService.isConnected()) return;
+
+    AppState.isSyncing = true;
+    UI.updateHeaderInfo();
+
     try {
-        let program = await SupabaseService.loadUserProgram(userId);
+        let program = await SupabaseService.loadProgramBySyncCode(syncCode);
         if (!program) {
-            // İlk kez giriş yapan kullanıcı için program oluştur
-            program = await SupabaseService.createOrUpdateProgram(AppState.program, userId);
+            // İlk kez bu sync_code için bulutta program kaydı aç
+            program = await SupabaseService.saveProgram(AppState.program, syncCode, AppState.currentUser?.id);
             // Varsayılan dersleri Supabase'e yükle
             for (const sub of AppState.subjects) {
-                await SupabaseService.saveSubject(sub, program.id, userId);
+                await SupabaseService.saveSubject(sub, syncCode, program.id, AppState.currentUser?.id);
             }
         } else {
-            AppState.program = program;
+            AppState.program = { ...AppState.program, ...program };
+            const subjects = await SupabaseService.loadSubjectsBySyncCode(syncCode, program.id);
+            if (subjects && subjects.length > 0) {
+                AppState.subjects = subjects;
+            }
+            const items = await SupabaseService.loadScheduleItemsBySyncCode(syncCode, program.id);
+            AppState.scheduleItems = items || [];
         }
 
-        const subjects = await SupabaseService.loadSubjects(program.id);
-        if (subjects && subjects.length > 0) {
-            AppState.subjects = subjects;
-        }
-
-        const items = await SupabaseService.loadScheduleItems(program.id);
-        AppState.scheduleItems = items || [];
-
+        AppState.lastSyncTime = new Date();
+        AppState.isSyncing = false;
         AppState.notify('supabase_synced');
-        UI.showToast('Verileriniz Supabase bulutundan başarıyla yüklendi.', 'success');
+        UI.showToast(`Bulut senkronize: "${syncCode.toUpperCase()}"`, 'success');
     } catch (err) {
-        console.error('Sync error:', err);
-        UI.showToast('Bulut verileri senkronize edilirken bir hata oluştu.', 'error');
+        console.error('Supabase sync error:', err);
+        AppState.isSyncing = false;
+        UI.updateHeaderInfo();
+        UI.showToast('Bulut senkronizasyonu sırasında bağlantı hatası oluştu.', 'warning');
+    }
+}
+
+/**
+ * Diğer cihazdan (telefon ya da bilgisayar) gelen canlı değişiklikleri işle
+ */
+function handleRemoteChange(tableName, payload) {
+    if (tableName === 'schedule_items') {
+        const { eventType, new: newRow, old: oldRow } = payload;
+        if (eventType === 'INSERT') {
+            const exists = AppState.scheduleItems.some(i => i.id === newRow.id);
+            if (!exists) {
+                AppState.scheduleItems.push(newRow);
+                AppState.notify('remote_item_added');
+                UI.showToast('Diğer cihazdan takvime ders eklendi! 📅', 'info', 2500);
+            }
+        } else if (eventType === 'UPDATE') {
+            const item = AppState.scheduleItems.find(i => i.id === newRow.id);
+            if (item) {
+                const statusChanged = item.completed !== newRow.completed;
+                item.completed = newRow.completed;
+                item.completed_at = newRow.completed_at;
+                item.day_number = newRow.day_number;
+                item.sort_order = newRow.sort_order;
+                AppState.notify('remote_item_updated');
+                if (statusChanged) {
+                    UI.showToast(newRow.completed ? 'Diğer cihazda ders tamamlandı! 🎉' : 'Ders işareti güncellendi.', 'info', 2500);
+                }
+            }
+        } else if (eventType === 'DELETE') {
+            const idx = AppState.scheduleItems.findIndex(i => i.id === oldRow.id);
+            if (idx !== -1) {
+                AppState.scheduleItems.splice(idx, 1);
+                AppState.notify('remote_item_deleted');
+                UI.showToast('Diğer cihazdan bir ders silindi.', 'info', 2500);
+            }
+        }
+    } else if (tableName === 'subjects') {
+        const { eventType, new: newRow, old: oldRow } = payload;
+        if (eventType === 'INSERT') {
+            if (!AppState.subjects.some(s => s.id === newRow.id)) {
+                AppState.subjects.push(newRow);
+                AppState.notify('remote_subject_added');
+            }
+        } else if (eventType === 'UPDATE') {
+            const idx = AppState.subjects.findIndex(s => s.id === newRow.id);
+            if (idx !== -1) {
+                AppState.subjects[idx] = newRow;
+                AppState.notify('remote_subject_updated');
+            }
+        } else if (eventType === 'DELETE') {
+            AppState.subjects = AppState.subjects.filter(s => s.id !== oldRow.id);
+            AppState.scheduleItems = AppState.scheduleItems.filter(i => i.subject_id !== oldRow.id);
+            AppState.notify('remote_subject_deleted');
+        }
+    } else if (tableName === 'programs') {
+        if (payload.new) {
+            AppState.program = { ...AppState.program, ...payload.new };
+            AppState.notify('remote_program_updated');
+        }
     }
 }
 
@@ -233,9 +310,9 @@ function bindEvents() {
                     item.completed = !item.completed;
                     item.completed_at = item.completed ? new Date().toISOString() : null;
                     
-                    // Supabase'e asenkron kaydet
-                    if (AppState.isSupabaseConnected && AppState.currentUser) {
-                        SupabaseService.updateScheduleItemCompleted(itemId, item.completed).catch(err => {
+                    // Supabase'e anında kaydet
+                    if (AppState.isSupabaseConnected) {
+                        SupabaseService.updateScheduleItemCompleted(itemId, item.completed, AppState.syncCode).catch(err => {
                             console.error('Supabase completion update failed:', err);
                         });
                     }
@@ -255,13 +332,12 @@ function bindEvents() {
                     AppState.scheduleItems.splice(itemIndex, 1);
 
                     // Supabase'den sil
-                    if (AppState.isSupabaseConnected && AppState.currentUser) {
-                        SupabaseService.deleteScheduleItem(itemId).catch(err => {
+                    if (AppState.isSupabaseConnected) {
+                        SupabaseService.deleteScheduleItem(itemId, AppState.syncCode).catch(err => {
                             console.error('Supabase delete item failed:', err);
                         });
                     }
 
-                    // Dinamik numaralar otomatik güncellensin
                     AppState.notify('item_deleted');
                     UI.showToast('Ders programdan silindi. Numaralandırma otomatik yeniden hizalandı.', 'info');
                 }
@@ -293,8 +369,9 @@ function bindEvents() {
             }
 
             const newItem = {
-                id: 'item-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+                id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 'item-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
                 program_id: AppState.program.id,
+                sync_code: AppState.syncCode,
                 subject_id: subject.id,
                 schedule_date: dateStr,
                 day_number: dayIndex,
@@ -306,8 +383,8 @@ function bindEvents() {
             AppState.scheduleItems.push(newItem);
 
             // Supabase senkronizasyonu
-            if (AppState.isSupabaseConnected && AppState.currentUser) {
-                SupabaseService.addScheduleItem(newItem, AppState.program.id, AppState.currentUser.id).then(saved => {
+            if (AppState.isSupabaseConnected) {
+                SupabaseService.addScheduleItem(newItem, AppState.syncCode, AppState.program.id, AppState.currentUser?.id).then(saved => {
                     if (saved && saved.id) newItem.id = saved.id;
                 }).catch(err => {
                     console.error('Supabase add item failed:', err);
@@ -372,8 +449,8 @@ function bindEvents() {
                     AppState.scheduleItems = AppState.scheduleItems.filter(i => i.subject_id !== subId);
                     AppState.subjects = AppState.subjects.filter(s => s.id !== subId);
 
-                    if (AppState.isSupabaseConnected && AppState.currentUser) {
-                        SupabaseService.deleteSubject(subId).catch(err => {
+                    if (AppState.isSupabaseConnected) {
+                        SupabaseService.deleteSubject(subId, AppState.syncCode).catch(err => {
                             console.error('Supabase delete subject failed:', err);
                         });
                     }
@@ -423,8 +500,8 @@ function bindEvents() {
                     subject.total_days = totalDays;
                     subject.youtube_url = youtube;
 
-                    if (AppState.isSupabaseConnected && AppState.currentUser) {
-                        SupabaseService.saveSubject(subject, AppState.program.id, AppState.currentUser.id).catch(err => {
+                    if (AppState.isSupabaseConnected) {
+                        SupabaseService.saveSubject(subject, AppState.syncCode, AppState.program.id, AppState.currentUser?.id).catch(err => {
                             console.error('Supabase update subject failed:', err);
                         });
                     }
@@ -433,7 +510,7 @@ function bindEvents() {
             } else {
                 // Yeni Ekleme
                 const newSubject = {
-                    id: 'sub-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+                    id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 'sub-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
                     name,
                     exam_type: examType,
                     teacher,
@@ -444,8 +521,8 @@ function bindEvents() {
 
                 AppState.subjects.push(newSubject);
 
-                if (AppState.isSupabaseConnected && AppState.currentUser) {
-                    SupabaseService.saveSubject(newSubject, AppState.program.id, AppState.currentUser.id).then(saved => {
+                if (AppState.isSupabaseConnected) {
+                    SupabaseService.saveSubject(newSubject, AppState.syncCode, AppState.program.id, AppState.currentUser?.id).then(saved => {
                         if (saved && saved.id) newSubject.id = saved.id;
                     }).catch(err => {
                         console.error('Supabase save subject failed:', err);
@@ -484,8 +561,8 @@ function bindEvents() {
             AppState.program.start_date = startDate;
             AppState.program.include_exam_day = includeExamDay;
 
-            if (AppState.isSupabaseConnected && AppState.currentUser) {
-                SupabaseService.createOrUpdateProgram(AppState.program, AppState.currentUser.id).catch(err => {
+            if (AppState.isSupabaseConnected) {
+                SupabaseService.saveProgram(AppState.program, AppState.syncCode, AppState.currentUser?.id).catch(err => {
                     console.error('Supabase program update failed:', err);
                 });
             }
@@ -511,6 +588,8 @@ function bindEvents() {
                 const test = await SupabaseService.testConnection(url, key);
                 if (test.success) {
                     UI.showToast('Supabase bağlantısı doğrulandı ve kaydedildi!', 'success');
+                    setupRealtimeSubscription(AppState.syncCode);
+                    syncWithSupabase(AppState.syncCode);
                 } else {
                     UI.showToast(`Supabase anahtarları kaydedildi fakat bağlantı uyarısı: ${test.message}`, 'warning');
                 }
@@ -533,9 +612,9 @@ function bindEvents() {
     const btnConfirmReset = document.getElementById('btnConfirmReset');
     if (btnConfirmReset) {
         btnConfirmReset.addEventListener('click', async () => {
-            if (AppState.isSupabaseConnected && AppState.currentUser) {
+            if (AppState.isSupabaseConnected) {
                 try {
-                    await SupabaseService.resetEntireProgram(AppState.program.id);
+                    await SupabaseService.resetEntireProgram(AppState.syncCode, AppState.program.id);
                 } catch (err) {
                     console.error('Supabase reset error:', err);
                 }
@@ -548,7 +627,63 @@ function bindEvents() {
     }
 
     // ----------------------------------------------------
-    // AUTH MODALI VE İŞLEMLERİ
+    // CİHAZ EŞLEŞTİRME (TELEFONU BAĞLA) MODALI
+    // ----------------------------------------------------
+    const btnOpenSyncModal = document.getElementById('btnOpenSyncModal');
+    const btnOpenSyncModalHeader = document.getElementById('btnOpenSyncModalHeader');
+
+    const openSyncModalHandler = () => {
+        UI.renderSyncModal();
+        UI.openModal('syncDeviceModal');
+    };
+
+    if (btnOpenSyncModal) btnOpenSyncModal.addEventListener('click', openSyncModalHandler);
+    if (btnOpenSyncModalHeader) btnOpenSyncModalHeader.addEventListener('click', openSyncModalHandler);
+
+    // Kodu Değiştir / Başka Koda Bağlan Formu
+    const syncCodeForm = document.getElementById('syncCodeForm');
+    if (syncCodeForm) {
+        syncCodeForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const inputCode = document.getElementById('inputSyncCode').value.trim();
+            if (!inputCode) return;
+
+            AppState.setSyncCode(inputCode);
+            setupRealtimeSubscription(inputCode);
+            await syncWithSupabase(inputCode);
+
+            UI.renderSyncModal();
+            UI.showToast(`"${inputCode.toUpperCase()}" programına başarıyla bağlandı!`, 'success');
+        });
+    }
+
+    // Eşleşme Linkini Kopyala Butonu
+    const btnCopySyncLink = document.getElementById('btnCopySyncLink');
+    if (btnCopySyncLink) {
+        btnCopySyncLink.addEventListener('click', () => {
+            const shareUrl = Config.getShareUrl(AppState.syncCode);
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(shareUrl).then(() => {
+                    UI.showToast('Telefon eşleşme bağlantısı kopyalandı! 📋', 'success');
+                }).catch(() => {
+                    prompt('Aşağıdaki linki kopyalayıp telefonunuzda açabilirsiniz:', shareUrl);
+                });
+            } else {
+                prompt('Aşağıdaki linki kopyalayıp telefonunuzda açabilirsiniz:', shareUrl);
+            }
+        });
+    }
+
+    // Manuel Senkronizasyon (Tazele) Butonu
+    const btnManualRefreshSync = document.getElementById('btnManualRefreshSync');
+    if (btnManualRefreshSync) {
+        btnManualRefreshSync.addEventListener('click', async () => {
+            await syncWithSupabase(AppState.syncCode);
+        });
+    }
+
+    // ----------------------------------------------------
+    // AUTH MODALI VE İŞLEMLERİ (İSTEĞE BAĞLI HESAP)
     // ----------------------------------------------------
     const btnOpenAuth = document.getElementById('btnOpenAuthModal');
     if (btnOpenAuth) {
@@ -590,7 +725,7 @@ function bindEvents() {
                 }
                 UI.closeModal('authModal');
             } catch (err) {
-                UI.showToast(`Giriş başarısız: ${err.message}`, 'error');
+                UI.showToast(`İşlem başarısız: ${err.message}`, 'error');
             }
         });
     }

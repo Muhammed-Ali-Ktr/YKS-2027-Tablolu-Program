@@ -98,14 +98,17 @@ export const UI = {
         const cloudStatus = document.getElementById('cloudStatusText');
         const cloudDot = document.getElementById('cloudStatusDot');
         if (cloudStatus && cloudDot) {
-            if (AppState.isSupabaseConnected && AppState.currentUser) {
-                cloudStatus.textContent = `Bulut Aktif (${AppState.currentUser.email})`;
-                cloudDot.className = 'status-dot online';
-            } else if (AppState.isSupabaseConnected) {
-                cloudStatus.textContent = 'Supabase Bağlı (Giriş Yapılmadı)';
-                cloudDot.className = 'status-dot online';
+            if (AppState.isSupabaseConnected) {
+                if (AppState.isSyncing) {
+                    cloudStatus.textContent = 'Eşitleniyor...';
+                    cloudDot.className = 'status-dot syncing';
+                } else {
+                    const code = (AppState.syncCode || 'yks2027').toUpperCase();
+                    cloudStatus.textContent = `Bulut: ${code}`;
+                    cloudDot.className = 'status-dot online';
+                }
             } else {
-                cloudStatus.textContent = 'Yerel Mod (Tarayıcıda Saklanıyor)';
+                cloudStatus.textContent = 'Yerel Mod (Çevrimdışı)';
                 cloudDot.className = 'status-dot';
             }
         }
@@ -410,14 +413,64 @@ export const UI = {
         const checkIncludeExamDay = document.getElementById('settingIncludeExamDay');
         const inputSupabaseUrl = document.getElementById('settingSupabaseUrl');
         const inputSupabaseKey = document.getElementById('settingSupabaseKey');
+        const inputSyncCode = document.getElementById('settingSyncCode');
 
         if (inputExamDate) inputExamDate.value = AppState.program.exam_date || '2027-06-19';
         if (inputStartDate) inputStartDate.value = AppState.program.start_date || '';
         if (checkIncludeExamDay) checkIncludeExamDay.checked = Boolean(AppState.program.include_exam_day);
+        if (inputSyncCode) inputSyncCode.value = AppState.syncCode || 'yks2027';
 
         // Supabase anahtarlarını Config'den al
         if (inputSupabaseUrl) inputSupabaseUrl.value = localStorage.getItem('yks2027_supabase_url') || '';
         if (inputSupabaseKey) inputSupabaseKey.value = localStorage.getItem('yks2027_supabase_anon_key') || '';
+    },
+
+    // ----------------------------------------------------
+    // CİHAZ SENKRONİZASYON (TELEFONU BAĞLA) MODALI
+    // ----------------------------------------------------
+    renderSyncModal() {
+        const codeDisplay = document.getElementById('displaySyncCode');
+        const codeInput = document.getElementById('inputSyncCode');
+        const urlDisplay = document.getElementById('displaySyncUrl');
+        const qrContainer = document.getElementById('syncQrContainer');
+
+        const currentCode = (AppState.syncCode || 'yks2027').toLowerCase();
+        const shareUrl = window.location.origin ? `${window.location.origin}${window.location.pathname}?sync=${encodeURIComponent(currentCode)}` : `?sync=${encodeURIComponent(currentCode)}`;
+
+        if (codeDisplay) codeDisplay.textContent = currentCode.toUpperCase();
+        if (codeInput) codeInput.value = currentCode;
+        if (urlDisplay) urlDisplay.value = shareUrl;
+
+        if (qrContainer) {
+            qrContainer.innerHTML = '';
+
+            // QR Kodu göster: Öncelikli olarak qrcodejs kütüphanesi veya fallback QR image servisi
+            if (window.QRCode) {
+                try {
+                    new window.QRCode(qrContainer, {
+                        text: shareUrl,
+                        width: 170,
+                        height: 170,
+                        colorDark: '#0f172a',
+                        colorLight: '#ffffff',
+                        correctLevel: window.QRCode.CorrectLevel.H
+                    });
+                    return;
+                } catch (e) {
+                    console.warn('QR library error, fallback image used:', e);
+                }
+            }
+
+            // Fallback: Doğrudan güvenilir QR API görseli
+            const qrImg = document.createElement('img');
+            qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=170x170&margin=10&data=${encodeURIComponent(shareUrl)}`;
+            qrImg.alt = 'Telefon Eşleştirme QR Kodu';
+            qrImg.style.width = '170px';
+            qrImg.style.height = '170px';
+            qrImg.style.borderRadius = '8px';
+            qrImg.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+            qrContainer.appendChild(qrImg);
+        }
     },
 
     // ----------------------------------------------------
