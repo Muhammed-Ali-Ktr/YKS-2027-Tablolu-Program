@@ -228,7 +228,7 @@ export const SupabaseService = {
 
         const { data, error } = await client
             .from('schedule_items')
-            .upsert(payload, { onConflict: 'sync_code,schedule_date,subject_id' })
+            .upsert(payload, { onConflict: 'id' })
             .select()
             .single();
 

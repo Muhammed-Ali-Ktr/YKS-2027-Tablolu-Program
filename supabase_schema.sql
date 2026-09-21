@@ -50,10 +50,11 @@ CREATE TABLE public.schedule_items (
     completed BOOLEAN NOT NULL DEFAULT false,
     completed_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
-    -- Aynı günde aynı dersin mükerrer eklenmesini önler
-    CONSTRAINT unique_sync_date_subject UNIQUE (sync_code, schedule_date, subject_id)
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
+
+-- Mevcut veritabanlarında aynı güne birden fazla bölüm eklemek için:
+-- ALTER TABLE public.schedule_items DROP CONSTRAINT IF EXISTS unique_sync_date_subject;
 
 -- 3. İndeksler (Hızlı senkronizasyon ve takvim sorgulama)
 CREATE INDEX idx_programs_sync_code ON public.programs(sync_code);

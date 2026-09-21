@@ -2,7 +2,7 @@
  * YKS 2027 Dinamik Numaralandırma Senaryo Testi (Madde 26)
  */
 
-import { calculateDynamicNumbers, validateAddSubjectToDay } from '../js/scheduler.js';
+import { calculateDynamicNumbers, validateAddSubjectToDay, findSubjectOccurrenceToTrim } from '../js/scheduler.js';
 
 console.log('=== YKS 2027 SENARYO DOĞRULAMA TESTİ BAŞLIYOR ===\n');
 
@@ -78,31 +78,48 @@ if (!pass2) {
     console.log('✅ 2. Aşama Dinamik Yeniden Numaralandırma Testi BAŞARILI!\n');
 }
 
-// 3. Aşama: Aynı gün aynı dersi ekleme kontrolü
-console.log('3. Aşama: Aynı güne aynı dersi ekleme engeli...');
+// 3. Aşama: Aynı güne aynı dersten ikinci bölüm eklenebilmeli
+console.log('3. Aşama: Aynı güne aynı dersten ikinci bölüm...');
 const dupCheck = validateAddSubjectToDay(scheduleItems, '2026-09-20', tytMat);
-console.log('Aynı gün TYT Mat ekleme izni:', dupCheck.valid, `(${dupCheck.message})`);
-if (dupCheck.valid !== false) {
-    console.error('❌ HATA: Aynı güne mükerrer ders eklenmesine izin verildi!');
+console.log('Aynı gün TYT Mat ekleme izni:', dupCheck.valid, `(numara: ${dupCheck.nextStudyNumber})`);
+if (dupCheck.valid !== true || dupCheck.nextStudyNumber !== 2) {
+    console.error('❌ HATA: Aynı güne ikinci bölüm eklenemedi veya numara yanlış!');
     process.exit(1);
 } else {
-    console.log('✅ 3. Aşama Mükerrer Ders Engeli Testi BAŞARILI!\n');
+    console.log('✅ 3. Aşama Aynı Güne Çoklu Bölüm Testi BAŞARILI!\n');
 }
 
-// 4. Aşama: Toplam limit kontrolü
-console.log('4. Aşama: Toplam gün limiti aşım kontrolü...');
+// 4. Aşama: Limit dolu ve sonraki gün yoksa ekleme engellenir
+console.log('4. Aşama: Sonraki gün yokken limit aşımı...');
 const testLimitedSub = { id: 'limit-test', name: 'Mini Ders', total_days: 2 };
 const limitedItems = [
     { id: 'l1', subject_id: 'limit-test', schedule_date: '2026-09-20' },
     { id: 'l2', subject_id: 'limit-test', schedule_date: '2026-09-21' }
 ];
 const limitCheck = validateAddSubjectToDay(limitedItems, '2026-09-22', testLimitedSub);
-console.log('Limit dolunca 3. ekleme izni:', limitCheck.valid, `(${limitCheck.message})`);
+console.log('Limit dolunca sonraki güne ekleme izni:', limitCheck.valid, `(${limitCheck.message})`);
 if (limitCheck.valid !== false) {
-    console.error('❌ HATA: Toplam gün limitini aşan derse izin verildi!');
+    console.error('❌ HATA: Sonraki gün olmadan limit aşımına izin verildi!');
     process.exit(1);
 } else {
     console.log('✅ 4. Aşama Limit Kontrolü Testi BAŞARILI!\n');
+}
+
+// 5. Aşama: Tüm bölümler yerleşmişken erken güne ekleme son kaydı düşürür
+console.log('5. Aşama: Limit doluyken erken güne ekleme, sondan düşürme...');
+const trimCheck = validateAddSubjectToDay(limitedItems, '2026-09-20', testLimitedSub);
+const trimTarget = findSubjectOccurrenceToTrim(limitedItems, 'limit-test', '2026-09-20');
+console.log('Erken güne ekleme izni:', trimCheck.valid, 'düşecek id:', trimCheck.trimItem?.id);
+if (
+    trimCheck.valid !== true ||
+    trimCheck.willTrimLast !== true ||
+    trimCheck.trimItem?.id !== 'l2' ||
+    trimTarget?.id !== 'l2'
+) {
+    console.error('❌ HATA: Sondan düşürme beklenen kaydı seçmedi!');
+    process.exit(1);
+} else {
+    console.log('✅ 5. Aşama Sondan Düşürme Testi BAŞARILI!\n');
 }
 
 console.log('🎉 TÜM TESTLER BAŞARIYLA GEÇTİ!');

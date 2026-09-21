@@ -560,6 +560,12 @@ export const UI = {
         AppState.subjects.forEach(subject => {
             const validation = validateAddSubjectToDay(AppState.scheduleItems, targetDateStr, subject);
             const planned = getSubjectPlannedCount(AppState.scheduleItems, subject.id);
+            const sameDayNote = validation.sameDayCount > 0
+                ? ` • Bu günde ${validation.sameDayCount} bölüm var`
+                : '';
+            const trimNote = validation.willTrimLast && validation.trimItem
+                ? `Sondan düşecek: ${formatTurkishDate(validation.trimItem.schedule_date, false)}`
+                : '';
 
             html += `
                 <div class="picker-item ${validation.valid ? '' : 'disabled'}">
@@ -569,7 +575,8 @@ export const UI = {
                             ${escapeHtml(subject.name)}
                         </div>
                         <div class="picker-sub">
-                            ${escapeHtml(subject.teacher)} • Toplam ${subject.total_days} Gün (${planned}/${subject.total_days} eklendi)
+                            ${escapeHtml(subject.teacher)} • ${planned}/${subject.total_days} bölüm eklendi${sameDayNote}
+                            ${trimNote ? `<br>${escapeHtml(trimNote)}` : ''}
                         </div>
                     </div>
 

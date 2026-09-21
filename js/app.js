@@ -6,7 +6,7 @@ import { AppState } from './state.js';
 import { Config } from './config.js';
 import { SupabaseService } from './supabase.js';
 import { UI } from './ui.js';
-import { validateAddSubjectToDay } from './scheduler.js';
+import { validateAddSubjectToDay, formatTurkishDate } from './scheduler.js';
 
 // DOM Elements
 let currentEditingSubjectId = null;
@@ -368,6 +368,13 @@ function bindEvents() {
                 return;
             }
 
+            const trimmedItem = validation.willTrimLast ? validation.trimItem : null;
+            const previousItems = AppState.scheduleItems.slice();
+
+            if (trimmedItem) {
+                AppState.scheduleItems = AppState.scheduleItems.filter(i => i.id !== trimmedItem.id);
+            }
+
             const newItem = {
                 id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 'item-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
                 program_id: AppState.program.id,
@@ -382,18 +389,37 @@ function bindEvents() {
 
             AppState.scheduleItems.push(newItem);
 
-            // Supabase senkronizasyonu
             if (AppState.isSupabaseConnected) {
-                SupabaseService.addScheduleItem(newItem, AppState.syncCode, AppState.program.id, AppState.currentUser?.id).then(saved => {
+                try {
+                    const saved = await SupabaseService.addScheduleItem(
+                        newItem,
+                        AppState.syncCode,
+                        AppState.program.id,
+                        AppState.currentUser?.id
+                    );
                     if (saved && saved.id) newItem.id = saved.id;
-                }).catch(err => {
-                    console.error('Supabase add item failed:', err);
-                });
+                    if (trimmedItem) {
+                        await SupabaseService.deleteScheduleItem(trimmedItem.id, AppState.syncCode);
+                    }
+                } catch (err) {
+                    console.error('Supabase add/trim item failed:', err);
+                    AppState.scheduleItems = previousItems;
+                    AppState.notify('item_added');
+                    UI.showToast('Kayıt buluta yazılamadı. Aynı güne birden fazla bölüm için Supabase kısıtını kaldırmanız gerekebilir.', 'warning');
+                    return;
+                }
             }
 
             UI.closeModal('addSubjectModal');
             AppState.notify('item_added');
-            UI.showToast(`"${subject.name}" başarıyla Gün ${dayIndex} programına eklendi!`, 'success');
+            if (trimmedItem) {
+                UI.showToast(
+                    `"${subject.name}" Gün ${dayIndex} programına eklendi. Programın sonundaki ${formatTurkishDate(trimmedItem.schedule_date, false)} kaydı otomatik çıkarıldı.`,
+                    'success'
+                );
+            } else {
+                UI.showToast(`"${subject.name}" başarıyla Gün ${dayIndex} programına eklendi!`, 'success');
+            }
         });
     }
 

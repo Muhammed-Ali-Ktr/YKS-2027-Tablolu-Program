@@ -190,36 +190,87 @@ export function getSubjectCompletedCount(scheduleItems, subjectId) {
 }
 
 /**
- * Bir derse ait yeni bir gün kaydı eklenmeden önceki doğrulama
+ * Aynı güne aynı dersten birden fazla bölüm eklenebilir.
+ * Limit dolduğunda, eklenen bölüm karşılığında programın sonundaki (daha ileri tarihteki) kayıt düşer.
+ */
+export function findSubjectOccurrenceToTrim(scheduleItems, subjectId, targetDateStr) {
+    if (!Array.isArray(scheduleItems) || !subjectId || !targetDateStr) return null;
+
+    const laterItems = scheduleItems.filter(
+        item => item.subject_id === subjectId && item.schedule_date > targetDateStr
+    );
+    if (laterItems.length === 0) return null;
+
+    const byLastInProgram = (a, b) => {
+        if (a.schedule_date !== b.schedule_date) {
+            return b.schedule_date.localeCompare(a.schedule_date);
+        }
+        const orderA = a.sort_order ?? 0;
+        const orderB = b.sort_order ?? 0;
+        if (orderA !== orderB) return orderB - orderA;
+        return (b.created_at || '').localeCompare(a.created_at || '');
+    };
+
+    const incompleteLater = laterItems.filter(item => !item.completed);
+    const pool = incompleteLater.length > 0 ? incompleteLater : laterItems;
+    return [...pool].sort(byLastInProgram)[0] || null;
+}
+
+function previewNextStudyNumber(scheduleItems, dateStr, subjectId, trimItemId = null) {
+    const items = (scheduleItems || []).filter(item => item.id !== trimItemId);
+    const previewId = '__preview-add__';
+    const previewItems = [
+        ...items,
+        {
+            id: previewId,
+            subject_id: subjectId,
+            schedule_date: dateStr,
+            sort_order: 9999,
+            created_at: '9999-12-31T00:00:00.000Z'
+        }
+    ];
+    const { numberMap } = calculateDynamicNumbers(previewItems);
+    return numberMap.get(previewId) || (items.filter(i => i.subject_id === subjectId).length + 1);
+}
+
+/**
+ * Bir derse ait yeni bir bölüm eklenmeden önceki doğrulama
  */
 export function validateAddSubjectToDay(scheduleItems, dateStr, subject) {
     if (!subject) {
         return { valid: false, message: 'Ders bulunamadı.' };
     }
 
-    // 1. Aynı gün içinde aynı dersin mükerrer eklenmesini engelle
-    const alreadyExistsInDay = scheduleItems.some(
+    const items = Array.isArray(scheduleItems) ? scheduleItems : [];
+    const plannedCount = getSubjectPlannedCount(items, subject.id);
+    const sameDayCount = items.filter(
         item => item.schedule_date === dateStr && item.subject_id === subject.id
-    );
+    ).length;
 
-    if (alreadyExistsInDay) {
+    if (plannedCount < subject.total_days) {
         return {
-            valid: false,
-            message: `"${subject.name}" dersi bu günün çalışma listesinde zaten mevcut.`
+            valid: true,
+            nextStudyNumber: previewNextStudyNumber(items, dateStr, subject.id),
+            willTrimLast: false,
+            trimItem: null,
+            sameDayCount
         };
     }
 
-    // 2. Dersin toplam gün limitini aşmasını engelle
-    const plannedCount = getSubjectPlannedCount(scheduleItems, subject.id);
-    if (plannedCount >= subject.total_days) {
+    const trimItem = findSubjectOccurrenceToTrim(items, subject.id, dateStr);
+    if (!trimItem) {
         return {
             valid: false,
-            message: `"${subject.name}" dersi ${subject.total_days}/${subject.total_days} gün tamamlandı. Daha fazla eklenemez.`
+            message: `"${subject.name}" dersinin tüm bölümleri yerleşmiş ve bu günden sonra çıkarılacak kayıt yok.`,
+            sameDayCount
         };
     }
 
     return {
         valid: true,
-        nextStudyNumber: plannedCount + 1
+        nextStudyNumber: previewNextStudyNumber(items, dateStr, subject.id, trimItem.id),
+        willTrimLast: true,
+        trimItem,
+        sameDayCount
     };
 }
