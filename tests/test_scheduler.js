@@ -2,7 +2,8 @@
  * YKS 2027 Dinamik Numaralandırma Senaryo Testi (Madde 26)
  */
 
-import { calculateDynamicNumbers, validateAddSubjectToDay, findSubjectOccurrenceToTrim } from '../js/scheduler.js';
+import assert from 'node:assert/strict';
+import { calculateDynamicNumbers, validateAddSubjectToDay, generateDateRange, isValidISODate } from '../js/scheduler.js';
 
 console.log('=== YKS 2027 SENARYO DOĞRULAMA TESTİ BAŞLIYOR ===\n');
 
@@ -105,21 +106,17 @@ if (limitCheck.valid !== false) {
     console.log('✅ 4. Aşama Limit Kontrolü Testi BAŞARILI!\n');
 }
 
-// 5. Aşama: Tüm bölümler yerleşmişken erken güne ekleme son kaydı düşürür
-console.log('5. Aşama: Limit doluyken erken güne ekleme, sondan düşürme...');
-const trimCheck = validateAddSubjectToDay(limitedItems, '2026-09-20', testLimitedSub);
-const trimTarget = findSubjectOccurrenceToTrim(limitedItems, 'limit-test', '2026-09-20');
-console.log('Erken güne ekleme izni:', trimCheck.valid, 'düşecek id:', trimCheck.trimItem?.id);
-if (
-    trimCheck.valid !== true ||
-    trimCheck.willTrimLast !== true ||
-    trimCheck.trimItem?.id !== 'l2' ||
-    trimTarget?.id !== 'l2'
-) {
-    console.error('❌ HATA: Sondan düşürme beklenen kaydı seçmedi!');
-    process.exit(1);
-} else {
-    console.log('✅ 5. Aşama Sondan Düşürme Testi BAŞARILI!\n');
-}
-
-console.log('🎉 TÜM TESTLER BAŞARIYLA GEÇTİ!');
+// Adding early must never silently delete a later manually planned task.
+const originalLimitedItems = JSON.stringify(limitedItems);
+const earlyAdd = validateAddSubjectToDay(limitedItems, '2026-09-20', testLimitedSub);
+assert.equal(earlyAdd.valid, false);
+assert.equal(earlyAdd.willTrimLast, false);
+assert.equal(JSON.stringify(limitedItems), originalLimitedItems);
+assert.deepEqual(generateDateRange('invalid', '2027-06-19'), []);
+assert.deepEqual(generateDateRange('2026-11-10', 'invalid'), []);
+assert.deepEqual(generateDateRange('2026-02-30', '2026-03-01'), []);
+assert.equal(isValidISODate('2028-02-29'), true);
+assert.equal(generateDateRange('2026-11-10', '2026-11-12').length, 2);
+assert.equal(generateDateRange('2026-11-10', '2026-11-12', true).length, 3);
+assert.equal(calculateDynamicNumbers(null).numberMap.size, 0);
+console.log('Manual plan protection and invalid-date checks passed.');

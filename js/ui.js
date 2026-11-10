@@ -1,3 +1,4 @@
+import { renderPlanner } from './planner.js';
 /**
  * YKS 2027 Kişisel Çalışma Programı - Kullanıcı Arayüzü (UI) Yöneticisi
  */
@@ -38,7 +39,8 @@ export const UI = {
             iconSvg = `<svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`;
         }
 
-        toast.innerHTML = `${iconSvg}<span>${message}</span>`;
+        toast.innerHTML = `${iconSvg}<span></span>`;
+        toast.querySelector("span").textContent = message;
         container.appendChild(toast);
 
         setTimeout(() => {
@@ -55,7 +57,14 @@ export const UI = {
     openModal(modalId) {
         const modal = document.getElementById(modalId);
         if (modal) {
+            this.previousFocus = document.activeElement;
             modal.classList.add('open');
+            const dialog = modal.querySelector('.modal-dialog');
+            dialog?.setAttribute('role', 'dialog');
+            dialog?.setAttribute('aria-modal', 'true');
+            const heading = dialog?.querySelector('h3');
+            if (heading) { heading.id ||= modalId + '-title'; dialog.setAttribute('aria-labelledby', heading.id); }
+            setTimeout(() => modal.querySelector('input:not([type=hidden]), select, textarea, button')?.focus(), 0);
             document.body.style.overflow = 'hidden';
         }
     },
@@ -65,6 +74,7 @@ export const UI = {
         if (modal) {
             modal.classList.remove('open');
             document.body.style.overflow = '';
+            this.previousFocus?.focus();
         }
     },
 
@@ -73,6 +83,7 @@ export const UI = {
             modal.classList.remove('open');
         });
         document.body.style.overflow = '';
+            this.previousFocus?.focus();
     },
 
     // ----------------------------------------------------
@@ -82,7 +93,7 @@ export const UI = {
         const remaining = getRemainingDays(AppState.program.exam_date);
         const countdownElem = document.getElementById('examCountdownText');
         if (countdownElem) {
-            countdownElem.textContent = `Sınava ${remaining} gün kaldı`;
+            countdownElem.textContent = `Hedef tarihe ${remaining} gün`;
         }
 
         // Mod butonlarının aktifliğini güncelle
@@ -102,13 +113,19 @@ export const UI = {
         const cloudStatus = document.getElementById('cloudStatusText');
         const cloudDot = document.getElementById('cloudStatusDot');
         if (cloudStatus && cloudDot) {
-            if (AppState.isSupabaseConnected) {
+            if (AppState.localSaveError) {
+                cloudStatus.textContent = 'Cihaza kaydedilemedi';
+                cloudDot.className = 'status-dot';
+            } else if (AppState.syncError) {
+                cloudStatus.textContent = 'Bulut aktarımı bekliyor';
+                cloudDot.className = 'status-dot';
+            } else if (AppState.isSupabaseConnected) {
                 if (AppState.isSyncing) {
                     cloudStatus.textContent = 'Eşitleniyor...';
                     cloudDot.className = 'status-dot syncing';
                 } else {
                     const code = (AppState.syncCode || 'yks2027').toUpperCase();
-                    cloudStatus.textContent = `Bulut: ${code}`;
+                    cloudStatus.textContent = AppState.lastSyncTime ? 'Bulut güncel' : 'Bulut bağlantısı hazırlanıyor';
                     cloudDot.className = 'status-dot online';
                 }
             } else {
@@ -121,231 +138,8 @@ export const UI = {
     // ----------------------------------------------------
     // 1. PROGRAM TAKVİMİ RENDER
     // ----------------------------------------------------
-    renderSchedule() {
-        const container = document.getElementById('scheduleGridContainer');
-        if (!container) return;
+    renderSchedule() { renderPlanner(); },
 
-        const { numberMap } = calculateDynamicNumbers(AppState.scheduleItems);
-        const dateRange = generateDateRange(
-            AppState.program.start_date,
-            AppState.program.exam_date,
-            AppState.program.include_exam_day
-        );
-
-        if (dateRange.length === 0) {
-            container.innerHTML = `
-                <div class="day-empty-placeholder" style="grid-column: 1 / -1; padding: 3rem;">
-                    Başlangıç veya sınav tarihi geçersiz. Lütfen Ayarlar sekmesini kontrol edin.
-                </div>
-            `;
-            return;
-        }
-
-        // Filtreleme kontrolü (Örn: Programı Kullan modunda "Bugün", "Kalanlar")
-        let displayedDays = dateRange;
-        if (AppState.currentMode === 'use') {
-            if (AppState.useFilter === 'today') {
-                displayedDays = dateRange.filter(d => d.isToday);
-                if (displayedDays.length === 0) {
-                    displayedDays = dateRange.slice(0, 1); // Bugün aralıkta yoksa ilk günü göster
-                }
-            } else if (AppState.useFilter === 'uncompleted') {
-                // İçinde en az bir tamamlanmamış ders olan günleri filtrele
-                const uncompletedDates = new Set(
-                    AppState.scheduleItems.filter(item => !item.completed).map(item => item.schedule_date)
-                );
-                displayedDays = dateRange.filter(d => uncompletedDates.has(d.dateStr) || d.isToday);
-            }
-        }
-
-        const wrapper = container.closest('.schedule-calendar-wrapper');
-        const isFiltered = AppState.currentMode === 'use' && AppState.useFilter !== 'all';
-        if (wrapper) {
-            wrapper.classList.toggle('is-filtered-view', isFiltered);
-        }
-
-        const subjectMap = new Map(AppState.subjects.map(s => [s.id, s]));
-
-        let html = '';
-
-        // Pazartesi ile başlaması için başlangıç haftasının önceki günlerini dolgu olarak ekle
-        if (!isFiltered && displayedDays.length > 0) {
-            const firstDateStr = displayedDays[0].dateStr;
-            const firstWeekday = getIsoWeekday(firstDateStr); // 1: Pazartesi ... 7: Pazar
-            if (firstWeekday > 1) {
-                const firstDateObj = parseISODate(firstDateStr);
-                for (let offset = firstWeekday - 1; offset >= 1; offset--) {
-                    const padDate = new Date(firstDateObj);
-                    padDate.setDate(padDate.getDate() - offset);
-                    const padDateStr = formatToISODate(padDate);
-                    const padFormatted = formatTurkishDate(padDateStr);
-                    html += `
-                        <div class="day-card day-card-placeholder" data-date="${padDateStr}">
-                            <div class="day-header">
-                                <div class="day-info">
-                                    <div class="day-number-title">-</div>
-                                    <div class="day-date-sub">${padFormatted}</div>
-                                </div>
-                            </div>
-                            <div class="day-content">
-                                <div class="day-placeholder-box">Program Öncesi</div>
-                            </div>
-                        </div>
-                    `;
-                }
-            }
-        }
-
-        displayedDays.forEach(day => {
-            const dayItems = AppState.scheduleItems
-                .filter(item => item.schedule_date === day.dateStr)
-                .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-
-            const isTodayClass = day.isToday ? 'is-today' : '';
-            const isExamClass = day.isExamDay ? 'is-exam' : '';
-
-            html += `
-                <div class="day-card ${isTodayClass} ${isExamClass}" id="day-card-${day.dateStr}" data-date="${day.dateStr}">
-                    <div class="day-header">
-                        <div class="day-info">
-                            <div class="day-number-title">
-                                ${day.isExamDay ? '🎯 Sınav Günü' : `Gün ${day.dayIndex}`}
-                            </div>
-                            <div class="day-date-sub">${day.formattedDate}</div>
-                        </div>
-                    </div>
-
-                    <div class="day-content">
-                        ${dayItems.length === 0 ? `
-                            <div class="day-empty-placeholder">
-                                ${AppState.currentMode === 'create' ? 'Henüz ders eklenmedi. Aşağıdan ekleyin.' : 'Bu gün için planlanmış çalışma yok.'}
-                            </div>
-                        ` : ''}
-
-                        ${dayItems.map(item => {
-                            const subject = subjectMap.get(item.subject_id) || {
-                                name: 'Bilinmeyen Ders',
-                                exam_type: 'TYT',
-                                teacher: '-',
-                                youtube_url: ''
-                            };
-                            const dynamicNum = numberMap.get(item.id) || 1;
-                            const isCompleted = Boolean(item.completed);
-
-                            if (AppState.currentMode === 'use') {
-                                // PROGRAMI KULLAN MODU GÖRÜNÜMÜ
-                                return `
-                                    <div class="schedule-item-row ${isCompleted ? 'completed' : ''}" data-item-id="${item.id}">
-                                        <div class="item-left">
-                                            <div class="custom-checkbox-wrapper js-toggle-complete" data-item-id="${item.id}">
-                                                <div class="custom-checkbox ${isCompleted ? 'checked' : ''}">
-                                                    ${isCompleted ? `
-                                                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
-                                                        </svg>
-                                                    ` : ''}
-                                                </div>
-                                            </div>
-                                            <div class="item-meta">
-                                                <div class="item-title">
-                                                    <span class="badge ${subject.exam_type === 'AYT' ? 'badge-ayt' : 'badge-tyt'}">${subject.exam_type}</span>
-                                                    ${escapeHtml(subject.name)} ${dynamicNum}
-                                                </div>
-                                                <div class="item-teacher">${escapeHtml(subject.teacher)}</div>
-                                            </div>
-                                        </div>
-                                        <div class="item-actions">
-                                            ${subject.youtube_url ? `
-                                                <a href="${escapeHtml(subject.youtube_url)}" target="_blank" rel="noopener noreferrer" class="action-link-yt" title="YouTube Oynatma Listesini Aç">
-                                                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
-                                                        <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-                                                    </svg>
-                                                </a>
-                                            ` : ''}
-                                        </div>
-                                    </div>
-                                `;
-                            } else {
-                                // PROGRAMI OLUŞTUR MODU GÖRÜNÜMÜ
-                                return `
-                                    <div class="schedule-item-row" data-item-id="${item.id}">
-                                        <div class="item-left">
-                                            <div class="item-meta">
-                                                <div class="item-title">
-                                                    <span class="badge ${subject.exam_type === 'AYT' ? 'badge-ayt' : 'badge-tyt'}">${subject.exam_type}</span>
-                                                    ${escapeHtml(subject.name)} ${dynamicNum}
-                                                </div>
-                                                <div class="item-teacher">${escapeHtml(subject.teacher)}</div>
-                                            </div>
-                                        </div>
-                                        <div class="item-actions">
-                                            ${subject.youtube_url ? `
-                                                <a href="${escapeHtml(subject.youtube_url)}" target="_blank" rel="noopener noreferrer" class="action-link-yt" title="YouTube Playlist">
-                                                    <svg width="17" height="17" fill="currentColor" viewBox="0 0 24 24">
-                                                        <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-                                                    </svg>
-                                                </a>
-                                            ` : ''}
-                                            <button type="button" class="action-delete-btn js-delete-schedule-item" data-item-id="${item.id}" title="Bu Dersi Bu Günden Kaldır">
-                                                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                                                </svg>
-                                            </button>
-                                        </div>
-                                    </div>
-                                `;
-                            }
-                        }).join('')}
-                    </div>
-
-                    ${AppState.currentMode === 'create' ? `
-                        <div class="day-footer">
-                            <button type="button" class="btn btn-secondary btn-sm js-open-add-subject-modal" data-date="${day.dateStr}" data-day-index="${day.dayIndex}">
-                                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-                                </svg>
-                                Ders Ekle
-                            </button>
-                        </div>
-                    ` : ''}
-                </div>
-            `;
-        });
-
-        // Pazar ile bitmesi için bitiş haftasının kalan günlerini dolgu olarak ekle
-        if (!isFiltered && displayedDays.length > 0) {
-            const lastDateStr = displayedDays[displayedDays.length - 1].dateStr;
-            const lastWeekday = getIsoWeekday(lastDateStr); // 1: Pazartesi ... 7: Pazar
-            if (lastWeekday < 7) {
-                const lastDateObj = parseISODate(lastDateStr);
-                for (let offset = 1; offset <= (7 - lastWeekday); offset++) {
-                    const padDate = new Date(lastDateObj);
-                    padDate.setDate(padDate.getDate() + offset);
-                    const padDateStr = formatToISODate(padDate);
-                    const padFormatted = formatTurkishDate(padDateStr);
-                    html += `
-                        <div class="day-card day-card-placeholder" data-date="${padDateStr}">
-                            <div class="day-header">
-                                <div class="day-info">
-                                    <div class="day-number-title">-</div>
-                                    <div class="day-date-sub">${padFormatted}</div>
-                                </div>
-                            </div>
-                            <div class="day-content">
-                                <div class="day-placeholder-box">Program Sonu</div>
-                            </div>
-                        </div>
-                    `;
-                }
-            }
-        }
-
-        container.innerHTML = html;
-    },
-
-    // ----------------------------------------------------
-    // 2. DERSLER KATALOĞU (SUBJECTS) RENDER
-    // ----------------------------------------------------
     renderSubjects() {
         const container = document.getElementById('subjectsGridContainer');
         if (!container) return;

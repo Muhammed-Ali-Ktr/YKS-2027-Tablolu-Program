@@ -5,9 +5,11 @@
  */
 
 import { Config } from './config.js';
+import { AppState, TASK_METADATA_FIELDS } from './state.js';
 
 let supabaseClient = null;
 let realtimeChannel = null;
+let metadataColumnsAvailable = null;
 
 function generateUniqueId(prefix = 'id') {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -19,6 +21,7 @@ function generateUniqueId(prefix = 'id') {
 export const SupabaseService = {
     // İstemciyi başlat
     initClient() {
+        metadataColumnsAvailable = null;
         const url = Config.getSupabaseUrl();
         const key = Config.getSupabaseAnonKey();
 
@@ -72,7 +75,7 @@ export const SupabaseService = {
 
         if (error) {
             console.warn('Program yüklenirken uyarı:', error.message);
-            return null;
+            throw error;
         }
         return data;
     },
@@ -128,7 +131,7 @@ export const SupabaseService = {
         const { data, error } = await query;
         if (error) {
             console.warn('Dersler yüklenirken uyarı:', error.message);
-            return [];
+            throw error;
         }
         return data || [];
     },
@@ -198,7 +201,11 @@ export const SupabaseService = {
 
         if (error) {
             console.warn('Takvim kayıtları yüklenirken uyarı:', error.message);
-            return [];
+            throw error;
+        }
+        if (data?.length) {
+            metadataColumnsAvailable = TASK_METADATA_FIELDS.every(field => field in data[0]);
+            AppState.taskMetadataLocalOnly = !metadataColumnsAvailable;
         }
         return data || [];
     },
@@ -213,12 +220,12 @@ export const SupabaseService = {
             id: itemId,
             program_id: programId || 'default-program',
             sync_code: syncCode,
-            subject_id: item.subject_id,
+            subject_id: item.subject_id || '',
             schedule_date: item.schedule_date,
             day_number: item.day_number,
             sort_order: item.sort_order ?? 0,
             completed: Boolean(item.completed),
-            completed_at: item.completed ? new Date().toISOString() : null,
+            completed_at: item.completed ? (item.completed_at || new Date().toISOString()) : null,
             updated_at: new Date().toISOString()
         };
 
@@ -226,17 +233,33 @@ export const SupabaseService = {
             payload.user_id = userId;
         }
 
-        const { data, error } = await client
-            .from('schedule_items')
-            .upsert(payload, { onConflict: 'id' })
-            .select()
-            .single();
+        const metadata = {
+            title: item.title || '', notes: item.notes || '', task_type: item.task_type || 'study',
+            duration_minutes: item.duration_minutes || 0, question_count: item.question_count || 0,
+            resource_url: item.resource_url || ''
+        };
+        const write = values => client.from('schedule_items').upsert(values, { onConflict: 'id' }).select().single();
+        let { data, error } = await write(metadataColumnsAvailable === false ? payload : { ...payload, ...metadata });
+        // Old installations retain task details on this device until optional columns are added.
+        if (error && ['PGRST204', '42703'].includes(error.code) && TASK_METADATA_FIELDS.some(field => `${error.message} ${error.details || ''}`.includes(field))) {
+            metadataColumnsAvailable = false;
+            AppState.taskMetadataLocalOnly = true;
+            ({ data, error } = await write(payload));
+        }
 
         if (error) {
             console.error('Takvime ders eklenirken hata:', error);
             throw error;
         }
-        return data;
+        if (metadataColumnsAvailable !== false) {
+            metadataColumnsAvailable = true;
+            AppState.taskMetadataLocalOnly = false;
+        }
+        return { ...metadata, ...data };
+    },
+
+    async updateScheduleItem(item, syncCode, programId, userId = null) {
+        return this.addScheduleItem(item, syncCode, programId || item.program_id, userId);
     },
 
     async updateScheduleItemCompleted(itemId, completed, syncCode) {

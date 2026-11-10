@@ -1,3 +1,19 @@
+# Güncel kullanım
+
+Günleri ve görevleri tamamen kendin planlarsın. Ay/hafta takvimi, bugün görünümü, geçmişten bekleyen işler, arama, ders filtresi, görev düzenleme/taşıma, tamamlama ve son silmeyi geri alma eklendi. Görevlere konu, not, süre ve soru hedefi, kaynak bağlantısı yazabilirsin. Tema düğmesi açık/koyu görünümü değiştirir. Ayarlar’dan JSON yedeği indirip geri yükleyebilirsin.
+
+## Mevcut bulutu güncelleme
+
+Yeni alanları cihazlar arasında eşitlemek için yalnızca `supabase_migration_multi_section.sql` dosyasını mevcut projenin SQL Editor ekranında uygula. Bu eklemeli güncelleme kayıtları silmez. `supabase_schema.sql` ilk kurulum içindir ve tablo silme komutları içerir; mevcut kayıtların olduğu veritabanında tekrar çalıştırma.
+
+Güncelleme yapılmazsa yeni görev ayrıntıları bu cihazda ve indirilen yedekte korunur; arayüz yerel ayrıntı uyarısını gösterir. SQL güncellemesi bu geliştirme sırasında canlı veritabanında uygulanmadı. Mevcut politikalar açık erişimlidir; eşleştirme kodu gizlilik güvencesi sağlamaz.
+
+Kontroller: `node tests/test_scheduler.js` ve `node tests/test_state.js`. Tarayıcı kontrolü canlı buluttan ayrılmış yerel önizlemede yapıldı.
+
+Aşağıdaki ilk sürüm açıklamalarındaki iki modlu arayüz ve mükerrer kayıt kısıtı artık geçerli değildir. Aynı güne birden çok çalışma yazılabilir; limit dolduğunda başka bir günün kaydı otomatik silinmez.
+
+---
+
 # YKS 2027 Kişisel Çalışma Programı (HTML5 / CSS3 / Vanilla JS + Supabase)
 
 YKS 2027'ye hazırlanan öğrencilerin kendi kişisel çalışma programlarını tamamen manuel ve esnek bir biçimde oluşturmasını, derslerin çalışma günlerini sistemin otomatik ve dinamik olarak numaralandırmasını sağlayan modern, sade, hızlı ve responsive bir web uygulamasıdır.
@@ -78,7 +94,7 @@ Tarayıcınızda `http://localhost:3000` adresine gidin.
    - `anon public` Key
    bilgilerini kopyalayın.
 5. Sitede sol menüden **Ayarlar** sekmesine gelin, bu bilgileri yapıştırıp **Bağlantıyı Kaydet & Test Et** butonuna basın.
-6. Sol alttaki **Hesap / Bulut** butonundan e-posta ve şifrenizle kayıt olabilir veya giriş yapabilirsiniz. RLS sayesinde her öğrenci yalnızca kendi programına erişebilir.
+6. Sol alttaki **Hesap / Bulut** butonundan e-posta ve şifrenizle kayıt olabilir veya giriş yapabilirsiniz. Mevcut eşleştirme kodu bir erişim parolası değildir; mevcut açık politikalar kullanıcı izolasyonu sağlamaz.
 
 ---
 

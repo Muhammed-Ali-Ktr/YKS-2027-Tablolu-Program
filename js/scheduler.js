@@ -15,9 +15,17 @@ const TURKISH_DAYS = [
  * Bir 'YYYY-MM-DD' dizgisini yerel saat farkı etkilemeden güvenli Date nesnesine çevirir
  */
 export function parseISODate(dateStr) {
-    if (!dateStr) return new Date();
+    if (!isValidISODate(dateStr)) return new Date(NaN);
     const [year, month, day] = dateStr.split('-').map(Number);
     return new Date(year, month - 1, day, 12, 0, 0); // Öğlen saatine ayarlayarak saat dilimi kaymalarını önler
+}
+
+export function isValidISODate(value) {
+    if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    const [year, month, day] = value.split('-').map(Number);
+    if (year < 1900 || year > 2200) return false;
+    const date = new Date(year, month - 1, day, 12);
+    return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
 }
 
 /**
@@ -68,7 +76,7 @@ export function formatShortDate(dateStr) {
  * Sınava kalan gün sayısını hesaplar
  */
 export function getRemainingDays(examDateStr) {
-    if (!examDateStr) return 0;
+    if (!isValidISODate(examDateStr)) return 0;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const examDate = parseISODate(examDateStr);
@@ -84,7 +92,7 @@ export function getRemainingDays(examDateStr) {
  */
 export function generateDateRange(startDateStr, examDateStr, includeExamDay = false) {
     const days = [];
-    if (!startDateStr || !examDateStr) return days;
+    if (!isValidISODate(startDateStr) || !isValidISODate(examDateStr) || startDateStr > examDateStr) return days;
 
     const start = parseISODate(startDateStr);
     start.setHours(0, 0, 0, 0);
@@ -148,7 +156,7 @@ export function calculateDynamicNumbers(scheduleItems) {
     const numberMap = new Map();
     const subjectCounters = new Map();
 
-    if (!Array.isArray(scheduleItems)) return numberMap;
+    if (!Array.isArray(scheduleItems)) return { numberMap, totalPlannedPerSubject: subjectCounters };
 
     // Tarihe göre artan, aynı gün içindeyse sort_order veya oluşturulma anına göre sırala
     const sorted = [...scheduleItems].sort((a, b) => {
@@ -237,6 +245,7 @@ function previewNextStudyNumber(scheduleItems, dateStr, subjectId, trimItemId = 
  * Bir derse ait yeni bir bölüm eklenmeden önceki doğrulama
  */
 export function validateAddSubjectToDay(scheduleItems, dateStr, subject) {
+    if (!isValidISODate(dateStr)) return { valid: false, message: 'Geçerli bir çalışma tarihi seçin.' };
     if (!subject) {
         return { valid: false, message: 'Ders bulunamadı.' };
     }
@@ -257,20 +266,11 @@ export function validateAddSubjectToDay(scheduleItems, dateStr, subject) {
         };
     }
 
-    const trimItem = findSubjectOccurrenceToTrim(items, subject.id, dateStr);
-    if (!trimItem) {
-        return {
-            valid: false,
-            message: `"${subject.name}" dersinin tüm bölümleri yerleşmiş ve bu günden sonra çıkarılacak kayıt yok.`,
-            sameDayCount
-        };
-    }
-
     return {
-        valid: true,
-        nextStudyNumber: previewNextStudyNumber(items, dateStr, subject.id, trimItem.id),
-        willTrimLast: true,
-        trimItem,
+        valid: false,
+        message: `"${subject.name}" için ${subject.total_days} bölümün tamamı planlandı. Yeni çalışma eklemek için Dersler bölümünden toplam bölüm sayısını artırın.`,
+        willTrimLast: false,
+        trimItem: null,
         sameDayCount
     };
 }

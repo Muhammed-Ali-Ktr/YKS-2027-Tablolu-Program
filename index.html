@@ -15,6 +15,7 @@
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/components.css">
     <link rel="stylesheet" href="css/responsive.css">
+    <link rel="stylesheet" href="css/planner.css">
     
     <!-- QRCode.js (İstemci tarafı anlık QR kod üretici) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -103,7 +104,7 @@
                         </svg>
                     </button>
                     <div class="page-headline">
-                        <h1 class="page-title">YKS 2027 Çalışma Programı</h1>
+                        <h1 class="page-title">Çalışma alanım</h1>
                         <div class="countdown-pill" id="examCountdownPill">
                             <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -133,6 +134,7 @@
 
                 <!-- Header Sağ Araçlar -->
                 <div class="header-right" style="display: flex; gap: 0.5rem; align-items: center;">
+                    <button type="button" class="btn btn-secondary btn-sm" id="themeToggle" aria-label="Açık veya koyu temaya geç">◐ Tema</button>
                     <button type="button" class="btn btn-secondary btn-sm" id="btnOpenSyncModalHeader" title="Telefonla Eşleştir">
                         <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/>
@@ -151,35 +153,7 @@
             <!-- 1. GÖRÜNÜM: PROGRAM TAKVİMİ -->
             <!-- ========================================== -->
             <section class="view-container view-section active" id="view-schedule">
-                <div class="view-toolbar">
-                    <div class="toolbar-info">
-                        <h2>Günlük Çalışma Planı</h2>
-                        <p id="scheduleModeSubtitle">Her güne dilediğiniz dersi ekleyin; sistem çalışma numaralarını otomatik hesaplar.</p>
-                    </div>
-
-                    <!-- Programı Kullan Modu İçin Filtreleme Butonları -->
-                    <div class="toolbar-actions" id="scheduleUseFilterBar">
-                        <button type="button" class="btn btn-primary btn-sm js-use-filter" data-filter="all">Tüm Günler</button>
-                        <button type="button" class="btn btn-secondary btn-sm js-use-filter" data-filter="today">Bugün</button>
-                        <button type="button" class="btn btn-secondary btn-sm js-use-filter" data-filter="uncompleted">Kalan Günler</button>
-                    </div>
-                </div>
-
-                <!-- Gün Kartları Grid Konteyneri (Pazartesiden Pazara 7 Günlük Takvim) -->
-                <div class="schedule-calendar-wrapper" id="scheduleCalendarWrapper">
-                    <div class="calendar-weekdays-bar" id="calendarWeekdaysBar">
-                        <div class="weekday-header-cell">Pazartesi</div>
-                        <div class="weekday-header-cell">Salı</div>
-                        <div class="weekday-header-cell">Çarşamba</div>
-                        <div class="weekday-header-cell">Perşembe</div>
-                        <div class="weekday-header-cell">Cuma</div>
-                        <div class="weekday-header-cell">Cumartesi</div>
-                        <div class="weekday-header-cell">Pazar</div>
-                    </div>
-                    <div class="schedule-grid" id="scheduleGridContainer">
-                        <!-- Dinamik JavaScript ile doldurulacak -->
-                    </div>
-                </div>
+                <div id="plannerRoot"></div>
             </section>
 
             <!-- ========================================== -->
@@ -275,7 +249,7 @@
                         <div class="form-group">
                             <label class="form-label" for="settingExamDate">YKS 2027 Sınav Tarihi</label>
                             <input type="date" id="settingExamDate" class="form-input" value="2027-06-19" required>
-                            <span class="form-hint">YKS 2027 tahmini sınav tarihi: 19 Haziran 2027.</span>
+                            <span class="form-hint">Bu tarih başlangıç ayarıdır. Resmî takvime göre güncelleyebilirsin.</span>
                         </div>
 
                         <div class="form-group" style="flex-direction: row; align-items: center; gap: 0.5rem;">
@@ -293,7 +267,7 @@
                 <div class="settings-section">
                     <div class="settings-header">
                         <h3>Supabase Veritabanı Bağlantısı</h3>
-                        <p>Verilerinizi Supabase bulut veritabanında güvenle saklamak için URL ve Anon Key bilgilerinizi girin.</p>
+                        <p>Bulut bağlantısının gelişmiş ayarları. Mevcut eşleştirme kodu erişim parolası değildir.</p>
                     </div>
                     <form id="settingsSupabaseForm" class="settings-form">
                         <div class="form-group">
@@ -332,6 +306,10 @@
                     </div>
                 </div>
 
+                <div class="settings-section">
+                    <div class="settings-header"><h3>Planının yedeği sende olsun</h3><p>Derslerin, görevlerin ve tamamlanma durumun tek bir dosyada. Yedeği geri yüklemek mevcut programın yerine geçer.</p></div>
+                    <div class="backup-actions"><button type="button" id="exportBackup" class="btn btn-primary">Yedeği indir</button><label class="btn btn-secondary" for="importBackup">Yedek dosyası seç</label><input type="file" id="importBackup" accept=".json,application/json" aria-label="Yedek dosyası seç"></div>
+                </div>
                 <!-- Programı Sıfırla (Danger Zone) -->
                 <div class="settings-section danger-box">
                     <div class="settings-header" style="border-color: #fecaca;">
@@ -370,7 +348,7 @@
             </div>
             <div class="modal-body">
                 <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">
-                    Eklemek istediğiniz dersi seçin. Aynı güne birden fazla bölüm eklenebilir; çalışma numarası otomatik hesaplanır. Tüm bölümler yerleşmişse sondaki kayıttan düşülür.
+                    Eklemek istediğiniz dersi seçin. Aynı güne birden fazla bölüm eklenebilir; çalışma numarası otomatik hesaplanır. Bölüm limiti dolarsa ders ayarlarından artırabilirsin.
                 </p>
                 <div class="subject-picker-list" id="subjectPickerList">
                     <!-- Dinamik doldurulacak -->
@@ -411,12 +389,12 @@
                     </div>
 
                     <div class="form-group" style="margin-bottom: 1rem;">
-                        <label class="form-label" for="subjectTeacher">Ders Anlatıcısı / Hoca *</label>
-                        <input type="text" id="subjectTeacher" class="form-input" placeholder="Örn: Mert Hoca" required>
+                        <label class="form-label" for="subjectTeacher">Ders Anlatıcısı / Hoca (isteğe bağlı)</label>
+                        <input type="text" id="subjectTeacher" class="form-input" placeholder="Örn: Mert Hoca">
                     </div>
 
                     <div class="form-group" style="margin-bottom: 1rem;">
-                        <label class="form-label" for="subjectTotalDays">Toplam Çalışma Günü *</label>
+                        <label class="form-label" for="subjectTotalDays">Planlanabilir Bölüm Sayısı *</label>
                         <input type="number" id="subjectTotalDays" class="form-input" min="1" max="365" value="50" required>
                         <span class="form-hint">Bu ders kaç bölüme ayrılacak? Aynı güne birden fazla bölüm eklenebilir.</span>
                     </div>
@@ -568,8 +546,23 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="taskModal">
+        <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="taskModalTitle">
+            <div class="modal-header"><div><p class="eyebrow">SENİN PLANIN</p><h3 id="taskModalTitle">Gününe bir görev ekle</h3></div><button type="button" class="btn-icon js-close-modal" aria-label="Kapat">✕</button></div>
+            <form id="taskForm"><div class="modal-body task-form-grid">
+                <div class="form-group full-width"><label class="form-label" for="taskTitle">Ne yapacaksın?</label><input class="form-input" id="taskTitle" maxlength="240" placeholder="Örn. Üslü sayılar, 3. video + 30 soru"><span class="form-hint">Kendi cümlenle yaz veya aşağıdan bir ders seç.</span></div>
+                <div class="form-group"><label class="form-label" for="taskDate">Gün</label><input class="form-input" id="taskDate" type="date" required></div>
+                <div class="form-group"><label class="form-label" for="taskType">Çalışma türü</label><select class="form-select" id="taskType"><option value="study">Konu çalışması</option><option value="questions">Soru çözümü</option><option value="review">Tekrar</option><option value="exam">Deneme</option><option value="other">Diğer</option></select></div>
+                <div class="form-group full-width"><label class="form-label" for="taskSubject">Ders (isteğe bağlı)</label><select class="form-select" id="taskSubject"></select></div>
+                <div class="form-group"><label class="form-label" for="taskDuration">Süre hedefi · dakika</label><input class="form-input" id="taskDuration" type="number" min="0" max="1440" step="1" placeholder="60"></div>
+                <div class="form-group"><label class="form-label" for="taskQuestions">Soru hedefi</label><input class="form-input" id="taskQuestions" type="number" min="0" max="10000" step="1" placeholder="30"></div>
+                <div class="form-group full-width"><label class="form-label" for="taskNotes">Notun (isteğe bağlı)</label><textarea class="form-input" id="taskNotes" rows="3" maxlength="10000" placeholder="Kaynak, sayfa aralığı, dikkat etmek istediğin noktalar…"></textarea></div>
+                <div class="form-group full-width"><label class="form-label" for="taskResource">Kaynak bağlantısı (isteğe bağlı)</label><input class="form-input" id="taskResource" type="url" maxlength="2048" placeholder="https://…"></div>
+            </div><div class="modal-footer"><button type="button" class="btn btn-secondary js-close-modal">Vazgeç</button><button type="submit" class="btn btn-primary">Görevi kaydet</button></div></form>
+        </div>
+    </div>
     <!-- Toast Bildirim Konteyneri -->
-    <div class="toast-container" id="toastContainer"></div>
+    <div class="toast-container" id="toastContainer" role="status" aria-live="polite"></div>
 
     <!-- Supabase JS CDN (V2) -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
