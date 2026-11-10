@@ -179,7 +179,7 @@ export const AppState = {
                 currentMode: this.currentMode,
                 taskMetadataLocalOnly: this.taskMetadataLocalOnly
             };
-            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(dataToSave));
+            localStorage.setItem(this.currentUser ? LOCAL_STORAGE_KEY + '_' + this.currentUser.id : LOCAL_STORAGE_KEY, JSON.stringify(dataToSave));
             this.localSaveError = null;
             return true;
         } catch (err) {
@@ -192,7 +192,7 @@ export const AppState = {
     // Yerel depolamadan yükle
     loadFromLocal() {
         try {
-            const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+            const raw = localStorage.getItem(this.currentUser ? LOCAL_STORAGE_KEY + '_' + this.currentUser.id : LOCAL_STORAGE_KEY);
             if (raw) {
                 const parsed = JSON.parse(raw);
                 if (parsed.syncCode) {
@@ -239,8 +239,9 @@ export const AppState = {
         const restored = validateBackup(input);
         // Identity belongs to the current program, never to an imported backup.
         this.program = { ...this.program, ...restored.program };
-        this.subjects = restored.subjects;
-        this.scheduleItems = restored.scheduleItems.map(item => ({ ...item, program_id: this.program.id, sync_code: this.syncCode }));
+        const ids = new Map(restored.subjects.map(s => [s.id, crypto.randomUUID()]));
+        this.subjects = restored.subjects.map(s => ({...s,id:ids.get(s.id)}));
+        this.scheduleItems = restored.scheduleItems.map(item => ({ ...item, id: crypto.randomUUID(), subject_id: ids.get(item.subject_id) || '', program_id: this.program.id, sync_code: this.syncCode }));
         this.notify('backup_restored');
     },
 

@@ -205,6 +205,10 @@ textarea.form-input { resize: vertical; min-height: 90px; }
 .task-form-grid .full-width, .task-form-grid .span-2 { grid-column: 1 / -1; }
 .backup-actions { display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; }
 .modal-dialog { border-radius: 16px; box-shadow: var(--shadow-lg); border: 1px solid var(--border-subtle); }
+.modal-dialog > form { display: flex; flex-direction: column; min-height: 0; }
+.modal-dialog .modal-header, .modal-dialog .modal-footer { flex-shrink: 0; }
+.modal-dialog .modal-body { min-height: 0; overscroll-behavior: contain; }
+.task-check { flex: 0 0 auto; display: inline-grid; place-items: center; cursor: pointer; }
 .modal-header { padding: 1.3rem 1.5rem; }
 .modal-body { padding: 1.5rem; }
 .modal-title { font-size: 1.15rem; }
@@ -264,18 +268,19 @@ html[data-theme="dark"] .danger-box .settings-header { border-color: #70463e !im
     .header-right { gap: .15rem !important; }
     .header-right .btn { font-size: .7rem; padding: .4rem; }
     .view-container, #view-schedule.view-container { padding: 1.25rem 1rem 2rem; }
-    .planner-intro { margin-bottom: 1.25rem; flex-wrap: wrap; gap: .8rem; }
-    .planner-intro h2 { font-size: 1.7rem; }
-    .planner-intro p { font-size: .8rem; }
-    .planner-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 1.3rem; }
-    .summary-card { padding: .9rem 1rem; }
+    .planner-intro { margin-bottom: .85rem; flex-wrap: wrap; gap: .6rem; }
+    .planner-intro h2 { font-size: 1.35rem; }
+    .planner-intro p { display: none; }
+    .planner-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: .8rem; }
+    .planner-summary .summary-card:nth-child(n + 3), .daily-progress { display: none; }
+    .summary-card { padding: .55rem .75rem; }
     .summary-label { font-size: .72rem; }
     .summary-value { font-size: 1.6rem; }
     .planner-toolbar { gap: .8rem; }
     .calendar-navigation { width: 100%; gap: .3rem; }
     #calendarTitle { margin-right: auto; min-width: 0; font-size: 1rem; }
     .view-switch { width: 100%; }
-    .view-switch button { flex: 1; padding: .4rem .6rem; }
+    .view-switch button { flex: 1; padding: .35rem .2rem; min-height: 44px; }
     .planner-controls { gap: .6rem; }
     .planner-controls .search-field { flex-basis: 100%; }
     .planner-controls input[type="search"] { flex-basis: 100%; }
@@ -284,12 +289,11 @@ html[data-theme="dark"] .danger-box .settings-header { border-color: #70463e !im
     .calendar-panel { padding: .65rem; border-radius: 12px; }
     .month-grid { gap: 3px; }
     .month-weekday { font-size: .65rem; padding-bottom: .6rem; }
-    .month-day { min-height: 72px; padding: .35rem; border-radius: 7px; gap: .25rem; }
-    .month-day.selected { padding: calc(.35rem - 1px); }
-    .date-number { font-size: .75rem; min-width: 23px; height: 23px; }
-    .day-count { font-size: .58rem; }
-    .day-dots { gap: 2px; }
-    .day-dots span, .day-dots i { width: 4px; height: 4px; }
+    .month-day { min-height: 52px; padding: .25rem .1rem; align-items: center; border-radius: 7px; gap: .1rem; }
+    .month-day.selected { padding: calc(.25rem - 1px) calc(.1rem - 1px); }
+    .date-number { font-size: .92rem; min-width: 23px; height: 23px; }
+    .day-count { font-size: .72rem; }
+    .day-count-word, .empty-count, .day-dots { display: none; }
     .agenda-list { display: flex; padding: .9rem; }
     .agenda-header { padding: 1rem; }
     .agenda-header h3 { font-size: .97rem; }
@@ -297,22 +301,26 @@ html[data-theme="dark"] .danger-box .settings-header { border-color: #70463e !im
     .week-grid { grid-template-columns: 1fr; }
     .week-day { padding: 0; }
     .week-day .task-title { font-size: .87rem; }
-    .task-actions button, .task-actions a { min-height: 42px; padding: .4rem .6rem; }
+    .day-agenda { scroll-margin-top: 82px; }
+    .task-check { width: 44px; height: 44px; margin: -.5rem -.35rem -.5rem -.5rem; }
+    .task-top input[type="checkbox"] { margin: 0; }
+    .task-card .task-title, .week-day .task-title { font-size: 1rem; }
+    .task-subtitle, .task-note, .task-tags span { font-size: .87rem; }
+    .task-actions button, .task-actions a { min-height: 44px; padding: .4rem .6rem; font-size: .85rem; }
     .backlog-banner { gap: .5rem; align-items: flex-start; font-size: .75rem; }
     .backlog-banner .btn { flex-shrink: 0; font-size: .7rem; padding: .4rem .6rem; }
     .modal-overlay { padding: .5rem; }
-    .modal-dialog { margin: 0; max-height: 95dvh; }
+    .modal-dialog { margin: 0; max-height: calc(100dvh - 1rem); }
     .modal-header, .modal-body { padding: 1.1rem; }
     .modal-footer { padding: 1rem 1.1rem; }
     .task-form-grid { gap: .85rem; }
-    .form-input, .form-select { font-size: 16px; }
+    .form-input, .form-select, .planner-controls .form-input, .planner-controls .form-select { font-size: 16px; }
+    .planner-controls input[type="date"] { min-width: 0; width: 100%; }
+    .view-container .btn, .modal-dialog .btn, .top-header button { min-height: 44px; }
 }
 @media (max-width: 380px) {
     .view-container, #view-schedule.view-container { padding-left: .65rem; padding-right: .65rem; }
-    .month-day { min-height: 66px; padding: .25rem; }
-    .month-day.selected { padding: calc(.25rem - 1px); }
     .calendar-panel { padding: .4rem; }
-    .day-count { font-size: .54rem; }
     .task-form-grid { grid-template-columns: 1fr; }
     .task-form-grid .full-width, .task-form-grid .span-2 { grid-column: auto; }
 }
@@ -327,3 +335,17 @@ html[data-theme="dark"] .danger-box .settings-header { border-color: #70463e !im
     .day-agenda { position: static; margin-top: 1rem; }
     .task-card { break-inside: avoid; }
 }
+
+/* Accounts replace share-code access. */
+[hidden] { display: none !important; }
+#btnOpenSyncModal, #btnOpenSyncModalHeader, #syncDeviceModal,
+.settings-section:has(#settingSyncCode), .settings-section:has(#settingsSupabaseForm) { display: none !important; }
+.account-screen { width:100%; min-height:100dvh; display:grid; place-items:center; padding:1rem; }
+.account-card { width:100%; max-width:440px; background:var(--bg-surface); border:1px solid var(--border-subtle); border-radius:18px; padding:1.5rem; }
+.account-card h1 { font-size:1.5rem; margin:1rem 0 .5rem; }
+.account-card p { color:var(--text-secondary); margin:.75rem 0; }
+.account-card label { display:block; margin:1rem 0; }
+.account-card input { display:block; width:100%; margin-top:.4rem; font-size:16px; }
+.account-card [type=submit] { width:100%; min-height:48px; }
+#accountError { color:var(--accent-danger); }
+@media(max-width:768px) { .sidebar:not(.mobile-open) { visibility:hidden; } .sidebar { overflow-y:auto; } }

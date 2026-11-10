@@ -3,6 +3,7 @@
  */
 
 import { AppState } from './state.js';
+import { requireAccount } from './account.js';
 import { Config } from './config.js';
 import { SupabaseService } from './supabase.js';
 import { UI } from './ui.js';
@@ -51,8 +52,17 @@ async function writePendingSettings() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // 1. Yerel veriyi yükle
+    const user = await requireAccount();
+    AppState.currentUser = user;
+    AppState.syncCode = user.id;
+    AppState.program.sync_code = user.id;
+    AppState.subjects = AppState.subjects.map(subject => ({...subject, id: user.id + '-' + subject.id}));
     AppState.loadFromLocal();
+    AppState.syncCode = user.id;
+    AppState.program.sync_code = user.id;
+    SupabaseService.onAuthStateChange((event, session) => {
+        if (!session || session.user.id !== user.id) location.reload();
+    });
     try {
         const saved = JSON.parse(localStorage.getItem(settingsQueueKey()) || 'null');
         if (saved && Array.isArray(saved.subjects)) pendingSettings = saved;
@@ -700,50 +710,12 @@ function bindEvents() {
     }
 
     // ----------------------------------------------------
-    // AUTH MODALI VE İŞLEMLERİ (İSTEĞE BAĞLI HESAP)
-    // ----------------------------------------------------
-    const btnOpenAuth = document.getElementById('btnOpenAuthModal');
-    if (btnOpenAuth) {
-        btnOpenAuth.addEventListener('click', () => {
-            if (AppState.currentUser) {
-                if (confirm(`${AppState.currentUser.email} hesabından çıkış yapmak istiyor musunuz?`)) {
-                    SupabaseService.signOut().then(() => {
-                        AppState.currentUser = null;
-                        UI.showToast('Çıkış yapıldı.', 'info');
-                        AppState.notify('sign_out');
-                    });
-                }
-            } else {
-                UI.openModal('authModal');
-            }
-        });
-    }
-
-    const authForm = document.getElementById('authForm');
-    if (authForm) {
-        authForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const email = document.getElementById('authEmail').value.trim();
-            const password = document.getElementById('authPassword').value;
-            const mode = document.querySelector('input[name="authMode"]:checked')?.value || 'login';
-
-            if (!Config.isConfigured()) {
-                UI.showToast('Giriş yapabilmek için önce Ayarlar sekmesinden Supabase URL ve Anon Key giriniz.', 'warning');
-                return;
-            }
-
-            try {
-                if (mode === 'login') {
-                    await SupabaseService.signIn(email, password);
-                    UI.showToast('Başarıyla giriş yapıldı!', 'success');
-                } else {
-                    await SupabaseService.signUp(email, password);
-                    UI.showToast('Kayıt oluşturuldu! Eğer e-posta onayı gerekiyorsa gelen kutunuzu kontrol edin.', 'success');
-                }
-                UI.closeModal('authModal');
-            } catch (err) {
-                UI.showToast(`İşlem başarısız: ${err.message}`, 'error');
-            }
-        });
-    }
+    // Account identity is validated before the planner is initialized.
+    document.getElementById('btnOpenAuthModal')?.addEventListener('click', async () => {
+        if (!confirm('Hesabından çıkış yapılsın mı?')) return;
+        try { await SupabaseService.signOut(); location.reload(); }
+        catch { UI.showToast('Çıkış yapılamadı. Tekrar dene.', 'error'); }
+    });
+    const accountButton=document.getElementById('btnOpenAuthModal');
+    if(accountButton)accountButton.textContent='Hesaptan çıkış yap';
 }

@@ -1,3 +1,5 @@
+> Yeni hesap sürümü: yayınlamadan önce [ACCOUNT_SETUP.md](ACCOUNT_SETUP.md) adımlarını tamamla. Artık ad-soyad ve 6 haneli şifre ile giriş zorunludur; eşleştirme koduyla ortak erişim kaldırılmıştır. Aşağıdaki eski kurulum açıklamalarından önce bu rehber geçerlidir.
+
 # Güncel kullanım
 
 Günleri ve görevleri tamamen kendin planlarsın. Ay/hafta takvimi, bugün görünümü, geçmişten bekleyen işler, arama, ders filtresi, görev düzenleme/taşıma, tamamlama ve son silmeyi geri alma eklendi. Görevlere konu, not, süre ve soru hedefi, kaynak bağlantısı yazabilirsin. Tema düğmesi açık/koyu görünümü değiştirir. Ayarlar’dan JSON yedeği indirip geri yükleyebilirsin.

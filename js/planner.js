@@ -3,6 +3,7 @@ import { UI } from './ui.js';
 import { SupabaseService } from './supabase.js';
 import { generateDateRange, formatToISODate, parseISODate, formatTurkishDate, calculateDynamicNumbers, validateAddSubjectToDay } from './scheduler.js';
 
+const isPhoneLayout = () => window.matchMedia('(max-width: 768px)').matches;
 const today = () => formatToISODate(new Date());
 const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const types = { study: 'Konu çalışması', questions: 'Soru çözümü', review: 'Tekrar', exam: 'Deneme', other: 'Diğer' };
@@ -65,7 +66,7 @@ function taskHTML(item, numbers) {
     const title = item.title || (subject ? `${subject.name} · ${numbers.get(item.id) || 1}. çalışma` : 'Çalışma');
     const resource = safeUrl(item.resource_url || subject?.youtube_url);
     return `<article class="task-card ${item.completed ? 'is-completed' : ''}">
-      <div class="task-top"><input type="checkbox" data-complete="${escape(item.id)}" ${item.completed ? 'checked' : ''} aria-label="${escape(title)} tamamlandı">
+      <div class="task-top"><label class="task-check"><input type="checkbox" data-complete="${escape(item.id)}" ${item.completed ? 'checked' : ''} aria-label="${escape(title)} tamamlandı"></label>
       <div class="task-body"><h4 class="task-title">${escape(title)}</h4><p class="task-subtitle">${escape(subject?.name || 'Kişisel görev')}${subject?.teacher ? ' · ' + escape(subject.teacher) : ''}</p></div></div>
       ${item.notes ? `<p class="task-note">${escape(item.notes)}</p>` : ''}
       <div class="task-tags"><span>${types[item.task_type] || types.study}</span>${item.duration_minutes ? `<span>${item.duration_minutes} dk</span>` : ''}${item.question_count ? `<span>${item.question_count} soru</span>` : ''}${item.completed ? '<span>Tamamlandı</span>' : ''}</div>
@@ -81,7 +82,7 @@ function agenda(date, numbers, onlyPending = false) {
       <div class="agenda-list">${list.map(i=>taskHTML(i,numbers)).join('') || `<div class="planner-empty"><span class="empty-symbol">○</span><h4>${search || subjectFilter ? 'Eşleşen görev yok' : 'Biraz alan, yeni bir başlangıç.'}</h4><p>${!valid ? 'Bu tarih program aralığının dışında. Tarihleri Ayarlar’dan değiştirebilirsin.' : search || subjectFilter ? 'Aramayı veya ders filtresini değiştir.' : 'Ne çalışacağına sen karar ver. İlk görevini ekleyerek başla.'}</p></div>`}</div></section>`;
 }
 
-export function renderPlanner() {
+export function renderPlanner(contentOnly = false) {
     const root = document.getElementById('plannerRoot');
     if (!root) return;
     loadQueue();
@@ -99,7 +100,7 @@ export function renderPlanner() {
     const monthLabel = date.toLocaleDateString('tr-TR',{month:'long',year:'numeric'});
     const title = view === 'today' ? 'Bugünün planı' : view === 'backlog' ? 'Tamamlanmamış işler' : view === 'all' ? 'Tüm görevler' : monthLabel;
     const stat = (label,value,detail) => `<div class="summary-card"><span class="summary-label">${label}</span><strong class="summary-value">${value}</strong><span class="summary-detail">${detail}</span></div>`;
-    root.innerHTML = `<div class="planner-intro"><div><p class="eyebrow">HER GÜN, BİR ADIM</p><h2>Planın sana ait.</h2><p>Gününü seç, yapacaklarını yaz. Kendi ritminde ilerle.</p></div><button class="btn btn-primary" data-add="${dates.has(selectedDate) ? selectedDate : range[0]?.dateStr || today()}">+ Görev ekle</button></div>
+    if (!contentOnly || !root.querySelector('#plannerContent')) root.innerHTML = `<div class="planner-intro"><div><p class="eyebrow">HER GÜN, BİR ADIM</p><h2>Planın sana ait.</h2><p>Gününü seç, yapacaklarını yaz. Kendi ritminde ilerle.</p></div><button class="btn btn-primary" data-add="${dates.has(selectedDate) ? selectedDate : range[0]?.dateStr || today()}">+ Görev ekle</button></div>
       <div class="planner-summary">${stat('BUGÜN', `${done}<small> / ${current.length}</small>`, 'görev tamamlandı')}${stat('PLANLANAN SÜRE',minutes ? `${minutes}<small> dk</small>` : '—', 'bugünkü görevlerinin toplamı')}${stat('GENEL İLERLEME',`${totalDone}<small> / ${items.length}</small>`,'görev tamamlandı')}${stat('BEKLEYEN',overdue.length,'geçmiş günlerden kalan görev')}</div>
       <div class="daily-progress"><span>Bugünkü ilerleme</span><div class="progress-track"><div class="progress-fill" style="width:${percent}%"></div></div><strong>%${percent}</strong></div>
       ${AppState.localSaveError ? `<div class="backlog-banner" role="alert">Cihaza kayıt yapılamadı. Verilerini kaybetmemek için yedek indir.<button class="btn btn-secondary btn-sm" data-export>Yedek indir</button></div>` : ''}
@@ -109,8 +110,9 @@ export function renderPlanner() {
       ${undoItem ? `<div class="backlog-banner" role="status">Görev silindi.<button class="btn btn-secondary btn-sm" data-undo>Geri al</button></div>` : ''}
       <div class="planner-toolbar"><div class="calendar-navigation"><button class="btn btn-secondary btn-sm" data-shift="-1" aria-label="Önceki dönem" ${['today','backlog','all'].includes(view) ? 'hidden' : ''}>‹</button><h3 id="calendarTitle">${title}</h3><button class="btn btn-secondary btn-sm" data-shift="1" aria-label="Sonraki dönem" ${['today','backlog','all'].includes(view) ? 'hidden' : ''}>›</button></div>
       <div class="view-switch" aria-label="Takvim görünümü">${[['today','Bugün'],['week','Hafta'],['month','Ay'],['backlog','Bekleyen'],['all','Tümü']].map(([key,label])=>`<button type="button" data-view="${key}" aria-pressed="${view===key}" class="${view===key ? 'active' : ''}">${label}</button>`).join('')}</div></div>
-      <div class="planner-controls"><label class="search-field"><span class="sr-only">Görev veya konu ara</span><input id="plannerSearch" class="form-input" type="search" placeholder="Görev veya konu ara…" value="${escape(search)}"></label><label><span class="sr-only">Derse göre filtrele</span><select id="plannerSubjectFilter" class="form-select"><option value="">Tüm dersler</option>${AppState.subjects.map(s=>`<option value="${escape(s.id)}" ${subjectFilter===s.id ? 'selected' : ''}>${escape(s.name)}</option>`).join('')}</select></label><label class="date-jump">Tarihe git<input id="plannerDateJump" class="form-input" type="date" value="${selectedDate}" min="${AppState.program.start_date}" max="${range.at(-1)?.dateStr || ''}"></label>${search || subjectFilter ? '<button class="btn btn-ghost btn-sm" data-clear>Filtreleri temizle</button>' : ''}</div>
+      <div class="planner-controls"><label class="search-field"><span class="sr-only">Görev veya konu ara</span><input id="plannerSearch" class="form-input" type="search" placeholder="Görev veya konu ara…" value="${escape(search)}"></label><label><span class="sr-only">Derse göre filtrele</span><select id="plannerSubjectFilter" class="form-select"><option value="">Tüm dersler</option>${AppState.subjects.map(s=>`<option value="${escape(s.id)}" ${subjectFilter===s.id ? 'selected' : ''}>${escape(s.name)}</option>`).join('')}</select></label><label class="date-jump">Tarihe git<input id="plannerDateJump" class="form-input" type="date" value="${selectedDate}" min="${AppState.program.start_date}" max="${range.at(-1)?.dateStr || ''}"></label><button class="btn btn-ghost btn-sm" data-clear ${search || subjectFilter ? '' : 'hidden'}>Filtreleri temizle</button></div>
       <div id="plannerContent"></div>`;
+    root.querySelector('[data-clear]').hidden = !search && !subjectFilter;
     const content = document.getElementById('plannerContent');
     if (view === 'today') content.innerHTML = agenda(today(),numberMap);
     else if (view === 'backlog' || view === 'all') {
@@ -127,7 +129,7 @@ export function renderPlanner() {
         const cells = Array.from({length:cellCount},(_,i)=>{
             const d = new Date(start);d.setDate(d.getDate()+i); const iso=formatToISODate(d);
             const list=filtered(items.filter(t=>t.schedule_date===iso)), count=list.length, completed=list.filter(t=>t.completed).length;
-            return `<button type="button" class="month-day ${!dates.has(iso) || d.getMonth()!==date.getMonth() ? 'outside' : ''} ${iso===selectedDate ? 'selected' : ''} ${iso===today() ? 'today' : ''} ${count ? 'has-tasks' : ''}" data-date="${iso}" ${!dates.has(iso) ? 'disabled' : ''} aria-pressed="${iso===selectedDate}" aria-label="${formatTurkishDate(iso)}, ${count} görev, ${completed} tamamlandı"><span class="date-number">${d.getDate()}</span>${count ? `<span class="day-count">${completed}/${count} görev</span><span class="day-dots">${list.slice(0,4).map(t=>`<i class="${t.completed ? 'done' : ''}"></i>`).join('')}</span>` : dates.has(iso) ? '<span class="day-count empty-count">+ Planla</span>' : ''}</button>`;
+            return `<button type="button" class="month-day ${!dates.has(iso) || d.getMonth()!==date.getMonth() ? 'outside' : ''} ${iso===selectedDate ? 'selected' : ''} ${iso===today() ? 'today' : ''} ${count ? 'has-tasks' : ''}" data-date="${iso}" ${!dates.has(iso) ? 'disabled' : ''} aria-pressed="${iso===selectedDate}" aria-label="${formatTurkishDate(iso)}, ${count} görev, ${completed} tamamlandı"><span class="date-number">${d.getDate()}</span>${count ? `<span class="day-count">${completed}/${count}<span class="day-count-word"> görev</span></span><span class="day-dots">${list.slice(0,4).map(t=>`<i class="${t.completed ? 'done' : ''}"></i>`).join('')}</span>` : dates.has(iso) ? '<span class="day-count empty-count">+ Planla</span>' : ''}</button>`;
         }).join('');
         content.innerHTML = `<div class="planner-layout"><section class="calendar-panel" aria-label="Aylık takvim"><div class="month-grid">${['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'].map(d=>`<div class="month-weekday">${d}</div>`).join('')}${cells}</div><p class="calendar-help">Bir gün seçerek görevlerini görüntüle veya ekle.</p></section>${agenda(selectedDate,numberMap)}</div>`;
     }
@@ -152,6 +154,7 @@ function downloadBackup() {
 
 export function initPlanner() {
     loadQueue();
+    if (isPhoneLayout()) view = 'today';
     const range=days();
     if (!range.some(d=>d.dateStr===selectedDate) && range.length) selectedDate=cursor=range[0].dateStr;
     try { document.documentElement.dataset.theme=localStorage.getItem('yks_theme') || 'light'; } catch {}
@@ -177,15 +180,18 @@ export function initPlanner() {
         if(b.dataset.shift){const d=parseISODate(cursor);if(view==='week')d.setDate(d.getDate()+7*Number(b.dataset.shift));else {d.setDate(1);d.setMonth(d.getMonth()+Number(b.dataset.shift));}cursor=formatToISODate(d);}
         if(b.hasAttribute('data-clear')){search='';subjectFilter='';}
         renderPlanner();
+        if (b.dataset.date && isPhoneLayout()) {
+            document.querySelector('.planner-layout .day-agenda')?.scrollIntoView({block: 'start'});
+        }
     });
     document.getElementById('plannerRoot').addEventListener('change',e=>{
         if(e.target.dataset.complete){const item=AppState.scheduleItems.find(i=>i.id===e.target.dataset.complete);if(!item)return;item.completed=e.target.checked;item.completed_at=item.completed?new Date().toISOString():null;enqueue(item.id,'save');AppState.notify('task_completed');flushPending();}
-        if(e.target.id==='plannerSubjectFilter'){subjectFilter=e.target.value;renderPlanner();}
+        if(e.target.id==='plannerSubjectFilter'){subjectFilter=e.target.value;renderPlanner(true);}
         if(e.target.id==='plannerDateJump' && e.target.value && e.target.validity.valid){selectedDate=cursor=e.target.value;view='month';renderPlanner();}
     });
     document.getElementById('plannerRoot').addEventListener('input',e=>{
         if(e.target.id!=='plannerSearch')return;
-        search=e.target.value;renderPlanner();const field=document.getElementById('plannerSearch');field.focus();
+        search=e.target.value;renderPlanner(true);
     });
     document.getElementById('taskForm').addEventListener('submit',e=>{
         e.preventDefault();
@@ -198,7 +204,7 @@ export function initPlanner() {
         const resource=value('taskResource');if(resource && !safeUrl(resource)){UI.showToast('Kaynak bağlantısı https:// veya http:// ile başlamalı.','warning');return;}
         const item={...old,id:id||crypto.randomUUID(),program_id:AppState.program.id,sync_code:AppState.syncCode,subject_id:subjectId,schedule_date:date,day_number:days().find(d=>d.dateStr===date).dayIndex,sort_order:old?.schedule_date===date?old.sort_order:Math.max(-1,...AppState.scheduleItems.filter(i=>i.schedule_date===date).map(i=>i.sort_order||0))+1,completed:old?.completed||false,created_at:old?.created_at||new Date().toISOString(),title,notes:value('taskNotes'),task_type:value('taskType'),duration_minutes:Number(value('taskDuration'))||0,question_count:Number(value('taskQuestions'))||0,resource_url:resource};
         if(old)AppState.scheduleItems=AppState.scheduleItems.map(i=>i.id===id?item:i);else AppState.scheduleItems.push(item);
-        selectedDate=cursor=date;enqueue(item.id,'save');UI.closeModal('taskModal');AppState.notify('task_saved');UI.showToast('Görev kaydedildi.','success');flushPending();
+        selectedDate=cursor=date;if(view==='today' && date!==today())view='month';enqueue(item.id,'save');UI.closeModal('taskModal');AppState.notify('task_saved');UI.showToast('Görev kaydedildi.','success');flushPending();
     });
     document.getElementById('exportBackup').addEventListener('click',downloadBackup);
     document.getElementById('importBackup').addEventListener('change',async e=>{
