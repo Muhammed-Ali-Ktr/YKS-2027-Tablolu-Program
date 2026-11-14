@@ -342,6 +342,8 @@ html[data-theme="dark"] .danger-box .settings-header { border-color: #70463e !im
 .settings-section:has(#settingSyncCode), .settings-section:has(#settingsSupabaseForm) { display: none !important; }
 .account-screen { width:100%; min-height:100dvh; display:grid; place-items:center; padding:1rem; }
 .account-card { width:100%; max-width:440px; background:var(--bg-surface); border:1px solid var(--border-subtle); border-radius:18px; padding:1.5rem; }
+.account-card .brand-icon { width:72px; height:72px; margin:0 auto 1rem; border-radius:20px; box-shadow:var(--shadow-md); overflow:hidden; }
+.brand-icon img { display:block; width:100%; height:100%; object-fit:cover; }
 .account-card h1 { font-size:1.5rem; margin:1rem 0 .5rem; }
 .account-card p { color:var(--text-secondary); margin:.75rem 0; }
 .account-card label { display:block; margin:1rem 0; }
