@@ -1,0 +1,19 @@
+{
+  "id": "./",
+  "name": "YKS 2027 Kişisel Çalışma Programı",
+  "short_name": "YKS 2027",
+  "description": "YKS 2027 için kişisel çalışma programı ve takip uygulaması.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f7f8f5",
+  "theme_color": "#267365",
+  "icons": [
+    {
+      "src": "assets/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
